@@ -1,0 +1,15 @@
+/* src/index.css — REPLACE entire file */
+@import "tailwindcss";
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Segoe UI', sans-serif;
+  background: #f9fafb;
+  max-width: 480px;
+  margin: 0 auto;
+}
