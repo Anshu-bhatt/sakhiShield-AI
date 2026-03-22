@@ -1,4 +1,11 @@
-export default function ChatBubble({ message, onScanClick }) {
+export default function ChatBubble({
+  message,
+  onScanClick,
+  onSpeak,
+  canSpeak,
+  isSpeaking,
+  onStopSpeaking
+}) {
 
   // Check if Claude wants to show scan button
   const showScanButton = message.content?.includes('[SHOW_SCAN_BUTTON]')
@@ -26,6 +33,26 @@ export default function ChatBubble({ message, onScanClick }) {
         }`}>
           {cleanContent}
         </div>
+
+        {/* Text-to-speech controls for assistant messages */}
+        {!isUser && canSpeak && (
+          <div className="flex gap-2">
+            <button
+              onClick={onSpeak}
+              className="text-xs bg-purple-50 border border-purple-200 text-purple-700 px-3 py-1 rounded-full"
+            >
+              🔊 સાંભળો
+            </button>
+            {isSpeaking && (
+              <button
+                onClick={onStopSpeaking}
+                className="text-xs bg-gray-100 border border-gray-300 text-gray-700 px-3 py-1 rounded-full"
+              >
+                ⏹ બંધ
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Scan button if needed */}
         {showScanButton && !isUser && (

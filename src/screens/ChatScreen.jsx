@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { sendToClaude } from '../api/Grok_API'
-import ChatBubble from '../components/chatBubble'
+import ChatBubble from '../components/ChatBubble'
 import TypingIndicator from '../components/TypingIndicator'
 import SafetyTipBanner from '../components/SafetyTipBanner'
 import MicButton from '../components/MicButton'
@@ -14,6 +14,10 @@ export default function ChatScreen() {
   const navigate = useNavigate()
   const bottomRef = useRef(null)
   const inputRef = useRef(null)
+  const synthRef = useRef(null)
+  const audioRef = useRef(null)
+  const audioUrlRef = useRef('')
+  const previousLengthRef = useRef(1)
 
   const [messages, setMessages] = useState([WELCOME_MESSAGE])
   const [input, setInput] = useState('')
@@ -21,6 +25,106 @@ export default function ChatScreen() {
   const [showQuickReplies, setShowQuickReplies] = useState(true)
   const [liveTranscript, setLiveTranscript] = useState('')
   const [selectedLang, setSelectedLang] = useState('gu-IN')
+  const [ttsEnabled, setTtsEnabled] = useState(true)
+  const [isTtsSupported, setIsTtsSupported] = useState(false)
+  const [isSpeaking, setIsSpeaking] = useState(false)
+  const [hasGujaratiVoice, setHasGujaratiVoice] = useState(false)
+
+  const cleanForSpeech = useCallback((text = '') => {
+    let normalized = text.replace('[SHOW_SCAN_BUTTON]', ' ')
+
+    // Remove all emojis/symbols so TTS does not narrate emoji names.
+    normalized = normalized
+      .replace(/[\p{Extended_Pictographic}\uFE0F\u200D]/gu, ' ')
+      .replace(/[*_`~#>|]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+
+    return normalized
+  }, [])
+
+  const stopSpeaking = useCallback(() => {
+    if (synthRef.current) {
+      synthRef.current.cancel()
+    }
+
+    if (audioRef.current) {
+      audioRef.current.pause()
+      audioRef.current.currentTime = 0
+      audioRef.current = null
+    }
+
+    if (audioUrlRef.current) {
+      URL.revokeObjectURL(audioUrlRef.current)
+      audioUrlRef.current = ''
+    }
+
+    setIsSpeaking(false)
+  }, [])
+
+  const speakText = useCallback(async (text) => {
+    const content = cleanForSpeech(text)
+    if (!content) return
+
+    stopSpeaking()
+
+    if (synthRef.current && hasGujaratiVoice) {
+      const utterance = new SpeechSynthesisUtterance(content)
+      utterance.lang = 'gu-IN'
+      utterance.rate = 1
+      utterance.pitch = 1
+
+      const voices = synthRef.current.getVoices()
+      if (voices.length) {
+        const preferredVoice = voices.find(v => v.lang === 'gu-IN')
+          || voices.find(v => v.lang?.startsWith('gu'))
+        if (preferredVoice) utterance.voice = preferredVoice
+      }
+
+      utterance.onstart = () => setIsSpeaking(true)
+      utterance.onend = () => setIsSpeaking(false)
+      utterance.onerror = () => setIsSpeaking(false)
+
+      synthRef.current.speak(utterance)
+      return
+    }
+
+    // Cloud fallback for systems without Gujarati browser voices.
+    const response = await fetch('http://localhost:5000/api/tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: content, lang: 'gu' })
+    })
+
+    if (!response.ok) {
+      throw new Error(`TTS backend error: ${response.status}`)
+    }
+
+    const audioBlob = await response.blob()
+    const objectUrl = URL.createObjectURL(audioBlob)
+    const audio = new Audio(objectUrl)
+
+    audioUrlRef.current = objectUrl
+    audioRef.current = audio
+
+    audio.onplay = () => setIsSpeaking(true)
+    audio.onended = () => {
+      setIsSpeaking(false)
+      if (audioUrlRef.current) {
+        URL.revokeObjectURL(audioUrlRef.current)
+        audioUrlRef.current = ''
+      }
+    }
+    audio.onerror = () => {
+      setIsSpeaking(false)
+      if (audioUrlRef.current) {
+        URL.revokeObjectURL(audioUrlRef.current)
+        audioUrlRef.current = ''
+      }
+    }
+
+    await audio.play()
+  }, [cleanForSpeech, hasGujaratiVoice, stopSpeaking])
 
   // Define handleSend as useCallback first
   const handleSend = useCallback(async (text) => {
@@ -86,6 +190,60 @@ export default function ChatScreen() {
     toggleLanguage(langCode)
   }
 
+  // Initialize text-to-speech support
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    // Cloud TTS fallback exists, so feature is considered supported in modern browsers.
+    setIsTtsSupported(true)
+
+    if (!('speechSynthesis' in window)) {
+      return () => {
+        stopSpeaking()
+      }
+    }
+
+    synthRef.current = window.speechSynthesis
+
+    const updateVoiceAvailability = () => {
+      const voices = synthRef.current?.getVoices() || []
+      const gujaratiAvailable = voices.some(v =>
+        v.lang === 'gu-IN' || v.lang?.toLowerCase().startsWith('gu')
+      )
+      setHasGujaratiVoice(gujaratiAvailable)
+    }
+
+    window.speechSynthesis.addEventListener('voiceschanged', updateVoiceAvailability)
+    updateVoiceAvailability()
+
+    return () => {
+      window.speechSynthesis.removeEventListener('voiceschanged', updateVoiceAvailability)
+      stopSpeaking()
+    }
+  }, [stopSpeaking])
+
+  // Auto-read new assistant messages when TTS is enabled.
+  useEffect(() => {
+    if (!ttsEnabled || !isTtsSupported || loading) {
+      previousLengthRef.current = messages.length
+      return
+    }
+
+    if (messages.length <= previousLengthRef.current) {
+      previousLengthRef.current = messages.length
+      return
+    }
+
+    const lastMessage = messages[messages.length - 1]
+    if (lastMessage?.role === 'assistant') {
+      void speakText(lastMessage.content)
+    }
+
+    previousLengthRef.current = messages.length
+  }, [messages, loading, ttsEnabled, isTtsSupported, speakText])
+
   // Auto scroll to bottom
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -122,6 +280,21 @@ export default function ChatScreen() {
         >
           📎 સ્કેન
         </button>
+        {isTtsSupported && (
+          <button
+            onClick={() => {
+              if (isSpeaking) stopSpeaking()
+              setTtsEnabled(prev => !prev)
+            }}
+            className={`text-xs px-3 py-2 rounded-full font-bold ${
+              ttsEnabled
+                ? 'bg-white text-purple-700'
+                : 'bg-purple-500 text-white'
+            }`}
+          >
+            {ttsEnabled ? '🔊 અવાજ ચાલુ' : '🔇 અવાજ બંધ'}
+          </button>
+        )}
       </div>
 
       {/* ── Safety Tip Banner ── */}
@@ -156,6 +329,10 @@ export default function ChatScreen() {
             key={msg.id}
             message={msg}
             onScanClick={() => navigate('/scan')}
+            onSpeak={() => void speakText(msg.content)}
+            canSpeak={isTtsSupported && msg.role === 'assistant'}
+            isSpeaking={isSpeaking}
+            onStopSpeaking={stopSpeaking}
           />
         ))}
 

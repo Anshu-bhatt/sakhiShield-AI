@@ -3,6 +3,7 @@ import cors from 'cors'
 import dotenv from 'dotenv'
 import fs from 'fs'
 import path from 'path'
+import googleTTS from 'google-tts-api'
 
 function loadEnvFile(fileName = '.env.local') {
   const envPath = path.resolve(process.cwd(), fileName)
@@ -48,8 +49,41 @@ app.get('/', (req, res) => {
   res.status(200).json({
     service: 'SakhiShield backend',
     status: 'ok',
-    endpoints: ['/api/grok']
+    endpoints: ['/api/grok', '/api/tts']
   })
+})
+
+app.post('/api/tts', async (req, res) => {
+  try {
+    const { text = '', lang = 'gu' } = req.body || {}
+    const cleanedText = String(text).replace(/\s+/g, ' ').trim()
+
+    if (!cleanedText) {
+      return res.status(400).json({ error: 'Text is required for TTS.' })
+    }
+
+    // Keep payload small to avoid oversized query URLs for provider endpoint.
+    const safeText = cleanedText.slice(0, 350)
+    const selectedLang = String(lang).startsWith('gu') ? 'gu' : 'gu'
+    const audioUrl = googleTTS.getAudioUrl(safeText, {
+      lang: selectedLang,
+      slow: false,
+      host: 'https://translate.google.com'
+    })
+
+    const ttsResponse = await fetch(audioUrl)
+    if (!ttsResponse.ok) {
+      return res.status(502).json({ error: 'Failed to fetch TTS audio.' })
+    }
+
+    const audioBuffer = Buffer.from(await ttsResponse.arrayBuffer())
+    res.setHeader('Content-Type', 'audio/mpeg')
+    res.setHeader('Cache-Control', 'no-store')
+    return res.status(200).send(audioBuffer)
+  } catch (error) {
+    console.error('❌ TTS error:', error)
+    return res.status(500).json({ error: 'TTS generation failed.', details: error.message })
+  }
 })
 
 // Groq API proxy endpoint
