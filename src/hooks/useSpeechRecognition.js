@@ -74,6 +74,13 @@ export function useSpeechRecognition({ onResult, onError }) {
       // Clear any existing timeout
       if (silenceTimeout) clearTimeout(silenceTimeout)
 
+      // Log error for debugging
+      console.error('Speech Recognition Error:', {
+        error: event.error,
+        timestamp: new Date().toISOString(),
+        browser: navigator.userAgent
+      })
+
       // Ignore aborted errors - they're expected when stopping
       if (event.error === 'aborted') {
         setIsListening(false)
@@ -90,10 +97,13 @@ export function useSpeechRecognition({ onResult, onError }) {
           errorMsg = 'માઈક ઉપલબ્ધ નથી ✋'
           break
         case 'network':
-          errorMsg = 'ઇન્ટરનેટ જોડાણ તપાસો 📡'
+          errorMsg = 'આવાજ સેવા અન્યત્ર જોડાય છે... મોટે તો વધુ વાર પછી સાધારણ થઇ જશે 📡'
+          break
+        case 'not-allowed':
+          errorMsg = 'માઈક પરવાનગી આપો પ્લીજ 🙏 - બ્રાઉઝર સેટિંગ્સમાં જાઓ'
           break
         default:
-          errorMsg = `ભૂલ: ${event.error}`
+          errorMsg = `ભૂલ આવી: ${event.error} - ટેક્સ્ટ વાપરો કે પછી ફરીથી પ્રયાસ કરો`
       }
 
       callbacksRef.current.onError(errorMsg)
