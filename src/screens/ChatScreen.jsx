@@ -3,55 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import { sendToClaude } from '../api/Grok_API'
 import ChatBubble from '../components/ChatBubble'
 import TypingIndicator from '../components/TypingIndicator'
+import SafetyTipBanner from '../components/SafetyTipBanner'
 import MicButton from '../components/MicButton'
 import LanguageSelector from '../components/LanguageSelector'
 import ListeningOverlay from '../components/ListeningOverlay'
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition'
-import { QUICK_REPLIES, WELCOME_MESSAGE, SAFETY_TIPS } from '../data/chatData'
+import { QUICK_REPLIES, WELCOME_MESSAGE } from '../data/chatData'
 
-/* ─── Safety tip banner ──────────────────────────────── */
-function SafetyTipBanner() {
-  const [idx, setIdx] = useState(0)
-  const [show, setShow] = useState(true)
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      setShow(false)
-      setTimeout(() => { setIdx(i => (i + 1) % SAFETY_TIPS.length); setShow(true) }, 380)
-    }, 4200)
-    return () => clearInterval(id)
-  }, [])
-
-  return (
-    <div className="flex items-center gap-2 px-4 py-2 flex-shrink-0"
-      style={{ background: '#FFFBEB', borderBottom: '1px solid #FDE68A' }}>
-      <span className="text-sm flex-shrink-0">💡</span>
-      <p
-        className={`text-xs font-semibold flex-1 min-w-0 truncate tip-text ${show ? '' : 'tip-hide'}`}
-        style={{ color: '#92400E' }}
-      >
-        {SAFETY_TIPS[idx]}
-      </p>
-    </div>
-  )
-}
-
-/* ─── Achievement toast ──────────────────────────────── */
-function Toast({ msg, onDone }) {
-  useEffect(() => { const t = setTimeout(onDone, 3000); return () => clearTimeout(t) }, [onDone])
-  return (
-    <div className="fixed z-50 anim-toast"
-      style={{ top: 14, left: '50%', transform: 'translateX(-50%)', width: 'calc(100% - 32px)', maxWidth: 440 }}>
-      <div className="flex items-center gap-3 px-5 py-4 rounded-2xl shadow-xl font-bold text-white text-sm leading-relaxed"
-        style={{ background: 'linear-gradient(135deg,#F59E0B,#D97706)' }}>
-        <span className="text-2xl">🎉</span>
-        <span>{msg}</span>
-      </div>
-    </div>
-  )
-}
-
-/* ══ CHAT SCREEN ════════════════════════════════════════════════ */
 export default function ChatScreen() {
   const navigate = useNavigate()
   const bottomRef = useRef(null)
@@ -59,217 +17,304 @@ export default function ChatScreen() {
   const synthRef = useRef(null)
   const audioRef = useRef(null)
   const audioUrlRef = useRef('')
-  const prevLenRef = useRef(1)
+  const previousLengthRef = useRef(1)
 
   const [messages, setMessages] = useState([WELCOME_MESSAGE])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
-  const [showChips, setShowChips] = useState(true)
-  const [activeChip, setActiveChip] = useState(null)
+  const [showQuickReplies, setShowQuickReplies] = useState(true)
   const [liveTranscript, setLiveTranscript] = useState('')
   const [selectedLang, setSelectedLang] = useState('gu-IN')
   const [ttsEnabled, setTtsEnabled] = useState(true)
   const [isTtsSupported, setIsTtsSupported] = useState(false)
   const [isSpeaking, setIsSpeaking] = useState(false)
-  const [hasGujVoice, setHasGujVoice] = useState(false)
-  const [toast, setToast] = useState(false)
-  const firstChat = useRef(false)
+  const [hasGujaratiVoice, setHasGujaratiVoice] = useState(false)
 
-  /* ─── TTS helpers ─── */
-  const clean = useCallback((t = '') =>
-    t.replace('[SHOW_SCAN_BUTTON]', ' ')
+  const cleanForSpeech = useCallback((text = '') => {
+    let normalized = text.replace('[SHOW_SCAN_BUTTON]', ' ')
+
+    // Remove all emojis/symbols so TTS does not narrate emoji names.
+    normalized = normalized
       .replace(/[\p{Extended_Pictographic}\uFE0F\u200D]/gu, ' ')
       .replace(/[*_`~#>|]/g, ' ')
-      .replace(/\s+/g, ' ').trim()
-    , [])
+      .replace(/\s+/g, ' ')
+      .trim()
+
+    return normalized
+  }, [])
 
   const stopSpeaking = useCallback(() => {
-    synthRef.current?.cancel()
-    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null }
-    if (audioUrlRef.current) { URL.revokeObjectURL(audioUrlRef.current); audioUrlRef.current = '' }
+    if (synthRef.current) {
+      synthRef.current.cancel()
+    }
+
+    if (audioRef.current) {
+      audioRef.current.pause()
+      audioRef.current.currentTime = 0
+      audioRef.current = null
+    }
+
+    if (audioUrlRef.current) {
+      URL.revokeObjectURL(audioUrlRef.current)
+      audioUrlRef.current = ''
+    }
+
     setIsSpeaking(false)
   }, [])
 
   const speakText = useCallback(async (text) => {
-    const content = clean(text)
+    const content = cleanForSpeech(text)
     if (!content) return
+
     stopSpeaking()
-    if (synthRef.current && hasGujVoice) {
-      const u = new SpeechSynthesisUtterance(content)
-      u.lang = 'gu-IN'; u.rate = 1; u.pitch = 1
-      const v = synthRef.current.getVoices()
-      const pv = v.find(x => x.lang === 'gu-IN') || v.find(x => x.lang?.startsWith('gu'))
-      if (pv) u.voice = pv
-      u.onstart = () => setIsSpeaking(true)
-      u.onend = u.onerror = () => setIsSpeaking(false)
-      synthRef.current.speak(u)
+
+    if (synthRef.current && hasGujaratiVoice) {
+      const utterance = new SpeechSynthesisUtterance(content)
+      utterance.lang = 'gu-IN'
+      utterance.rate = 1
+      utterance.pitch = 1
+
+      const voices = synthRef.current.getVoices()
+      if (voices.length) {
+        const preferredVoice = voices.find(v => v.lang === 'gu-IN')
+          || voices.find(v => v.lang?.startsWith('gu'))
+        if (preferredVoice) utterance.voice = preferredVoice
+      }
+
+      utterance.onstart = () => setIsSpeaking(true)
+      utterance.onend = () => setIsSpeaking(false)
+      utterance.onerror = () => setIsSpeaking(false)
+
+      synthRef.current.speak(utterance)
       return
     }
-    try {
-      const r = await fetch('http://localhost:5000/api/tts', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: content, lang: 'gu' }),
-      })
-      if (!r.ok) return
-      const blob = await r.blob()
-      const url = URL.createObjectURL(blob)
-      const a = new Audio(url)
-      audioUrlRef.current = url; audioRef.current = a
-      a.onplay = () => setIsSpeaking(true)
-      a.onended = a.onerror = () => { setIsSpeaking(false); URL.revokeObjectURL(url); audioUrlRef.current = '' }
-      await a.play()
-    } catch { /* silent */ }
-  }, [clean, hasGujVoice, stopSpeaking])
 
-  /* ─── Send ─── */
+    // Cloud fallback for systems without Gujarati browser voices.
+    const response = await fetch('/api/tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: content, lang: 'gu' })
+    })
+
+    if (!response.ok) {
+      throw new Error(`TTS backend error: ${response.status}`)
+    }
+
+    const audioBlob = await response.blob()
+    const objectUrl = URL.createObjectURL(audioBlob)
+    const audio = new Audio(objectUrl)
+
+    audioUrlRef.current = objectUrl
+    audioRef.current = audio
+
+    audio.onplay = () => setIsSpeaking(true)
+    audio.onended = () => {
+      setIsSpeaking(false)
+      if (audioUrlRef.current) {
+        URL.revokeObjectURL(audioUrlRef.current)
+        audioUrlRef.current = ''
+      }
+    }
+    audio.onerror = () => {
+      setIsSpeaking(false)
+      if (audioUrlRef.current) {
+        URL.revokeObjectURL(audioUrlRef.current)
+        audioUrlRef.current = ''
+      }
+    }
+
+    await audio.play()
+  }, [cleanForSpeech, hasGujaratiVoice, stopSpeaking])
+
+  // Define handleSend as useCallback first
   const handleSend = useCallback(async (text) => {
     const userText = (text || input).trim()
     if (!userText || loading) return
+
     setInput('')
-    setShowChips(false)
-    setActiveChip(null)
+    setShowQuickReplies(false)
     setLoading(true)
+
+    // Add user message
     const userMsg = { role: 'user', content: userText, id: Date.now() }
-    const updated = [...messages, userMsg]
-    setMessages(updated)
-    const history = updated.filter(m => m.id !== 'welcome').map(m => ({ role: m.role, content: m.content }))
+    const updatedMessages = [...messages, userMsg]
+    setMessages(updatedMessages)
+
+    // Build history for Claude (exclude welcome id, only role+content)
+    const history = updatedMessages
+      .filter(m => m.id !== 'welcome')
+      .map(m => ({ role: m.role, content: m.content }))
+
+    // Get Claude reply
     const reply = await sendToClaude(history)
-    setMessages(prev => [...prev, { role: 'assistant', content: reply, id: Date.now() + 1 }])
+
+    setMessages(prev => [
+      ...prev,
+      { role: 'assistant', content: reply, id: Date.now() + 1 }
+    ])
     setLoading(false)
-    if (!firstChat.current) { firstChat.current = true; setTimeout(() => setToast(true), 700) }
   }, [input, loading, messages])
 
-  /* ─── Speech ─── */
-  const handleSpeechResult = useCallback((tr, isFinal) => {
-    setLiveTranscript(tr)
-    if (isFinal && tr.trim()) { setInput(tr); setLiveTranscript(''); setTimeout(() => handleSend(tr), 300) }
+  // Memoized callback for speech result
+  const handleSpeechResult = useCallback((transcript, isFinal) => {
+    setLiveTranscript(transcript)
+    if (isFinal && transcript.trim()) {
+      setInput(transcript)
+      setLiveTranscript('')
+      // Auto send after voice
+      setTimeout(() => handleSend(transcript), 300)
+    }
   }, [handleSend])
 
+  // Memoized callback for speech error
   const handleSpeechError = useCallback((msg) => {
     setLiveTranscript('')
-    setMessages(prev => [...prev, { role: 'assistant', content: msg, id: Date.now() }])
+    // Show error as bot message
+    setMessages(prev => [...prev, {
+      role: 'assistant',
+      content: msg,
+      id: Date.now()
+    }])
   }, [])
 
+  // Speech recognition hook
   const { isListening, isSupported, startListening, stopListening, toggleLanguage } =
-    useSpeechRecognition({ onResult: handleSpeechResult, onError: handleSpeechError })
+    useSpeechRecognition({
+      onResult: handleSpeechResult,
+      onError: handleSpeechError
+    })
 
-  function handleLangChange(code) { setSelectedLang(code); toggleLanguage(code) }
+  // Language change handler
+  function handleLanguageChange(langCode) {
+    setSelectedLang(langCode)
+    toggleLanguage(langCode)
+  }
 
-  /* ─── TTS init ─── */
+  // Initialize text-to-speech support
   useEffect(() => {
-    if (typeof window === 'undefined') return
-    setIsTtsSupported(true)
-    if (!('speechSynthesis' in window)) return () => stopSpeaking()
-    synthRef.current = window.speechSynthesis
-    const update = () => {
-      const v = synthRef.current?.getVoices() || []
-      setHasGujVoice(v.some(x => x.lang === 'gu-IN' || x.lang?.toLowerCase().startsWith('gu')))
+    if (typeof window === 'undefined') {
+      return
     }
-    window.speechSynthesis.addEventListener('voiceschanged', update)
-    update()
-    return () => { window.speechSynthesis.removeEventListener('voiceschanged', update); stopSpeaking() }
+
+    // Cloud TTS fallback exists, so feature is considered supported in modern browsers.
+    setIsTtsSupported(true)
+
+    if (!('speechSynthesis' in window)) {
+      return () => {
+        stopSpeaking()
+      }
+    }
+
+    synthRef.current = window.speechSynthesis
+
+    const updateVoiceAvailability = () => {
+      const voices = synthRef.current?.getVoices() || []
+      const gujaratiAvailable = voices.some(v =>
+        v.lang === 'gu-IN' || v.lang?.toLowerCase().startsWith('gu')
+      )
+      setHasGujaratiVoice(gujaratiAvailable)
+    }
+
+    window.speechSynthesis.addEventListener('voiceschanged', updateVoiceAvailability)
+    updateVoiceAvailability()
+
+    return () => {
+      window.speechSynthesis.removeEventListener('voiceschanged', updateVoiceAvailability)
+      stopSpeaking()
+    }
   }, [stopSpeaking])
 
-  /* ─── Auto-speak new assistant messages ─── */
+  // Auto-read new assistant messages when TTS is enabled.
   useEffect(() => {
-    if (!ttsEnabled || !isTtsSupported || loading) { prevLenRef.current = messages.length; return }
-    if (messages.length <= prevLenRef.current) { prevLenRef.current = messages.length; return }
-    const last = messages[messages.length - 1]
-    if (last?.role === 'assistant') void speakText(last.content)
-    prevLenRef.current = messages.length
+    if (!ttsEnabled || !isTtsSupported || loading) {
+      previousLengthRef.current = messages.length
+      return
+    }
+
+    if (messages.length <= previousLengthRef.current) {
+      previousLengthRef.current = messages.length
+      return
+    }
+
+    const lastMessage = messages[messages.length - 1]
+    if (lastMessage?.role === 'assistant') {
+      void speakText(lastMessage.content)
+    }
+
+    previousLengthRef.current = messages.length
   }, [messages, loading, ttsEnabled, isTtsSupported, speakText])
 
-  /* ─── Scroll ─── */
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, loading])
+  // Auto scroll to bottom
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages, loading])
 
-  function onKeyDown(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }
+  function handleKeyDown(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleSend()
+    }
+  }
 
   return (
-    <div className="flex flex-col" style={{ height: '100svh', height: '100vh', background: '#FAFAF9' }}>
+    <div className="flex flex-col h-screen bg-gray-50">
 
-      {toast && <Toast msg="🎉 Pehlo chat done! Smart cho tame! 💜" onDone={() => setToast(false)} />}
-
-      {/* ══ HEADER ══ */}
-      <div
-        className="flex items-center gap-3 px-4 py-3 flex-shrink-0"
-        style={{ background: 'linear-gradient(to right,#7C3AED,#6D28D9)', boxShadow: '0 2px 12px rgba(109,40,217,.35)' }}
-      >
-        {/* Back */}
+      {/* ── Header ── */}
+      <div className="bg-purple-700 text-white px-4 py-3 flex items-center gap-3 shadow-md">
         <button
           onClick={() => navigate('/')}
-          className="press flex items-center justify-center rounded-xl text-white font-bold text-lg"
-          style={{ width: 38, height: 38, background: 'rgba(255,255,255,.15)', flexShrink: 0 }}
-        >←</button>
-
-        {/* Avatar */}
-        <div className="relative flex-shrink-0">
-          <div
-            className="flex items-center justify-center rounded-full"
-            style={{
-              width: 44, height: 44, fontSize: 22,
-              background: 'linear-gradient(135deg,rgba(255,255,255,.28),rgba(255,255,255,.1))',
-              border: '2px solid rgba(255,255,255,.32)',
-            }}
-          >🛡️</div>
-          {/* Online dot */}
-          <div className="absolute -bottom-0.5 -right-0.5 rounded-full"
-            style={{ width: 14, height: 14, background: '#10B981', border: '2px solid #6D28D9' }}>
-            <div className="online-ring" />
-          </div>
+          className="text-white text-xl p-1"
+        >
+          ←
+        </button>
+        <div className="w-10 h-10 rounded-full bg-purple-500 flex items-center justify-center text-xl">
+          🛡️
         </div>
-
-        {/* Title */}
-        <div className="flex-1 min-w-0">
-          <p className="font-black text-white text-base leading-tight">VittSakhi</p>
-          <p className="text-xs font-semibold" style={{ color: '#C4B5FD' }}>Tamari Banking Sakhi</p>
+        <div className="flex-1">
+          <div className="font-bold text-base">VittSakhi</div>
+          <div className="text-xs text-purple-200">તમારી AI સખી 🟢 ઑનલાઈન</div>
         </div>
-
-        {/* Scan pill */}
         <button
           onClick={() => navigate('/scan')}
-          className="press font-black text-xs rounded-full px-3 py-2 flex-shrink-0"
-          style={{ background: '#F59E0B', color: '#1C1917', minHeight: 36 }}
-        >📎 Scan</button>
-
-        {/* TTS toggle */}
+          className="bg-purple-500 text-white text-xs px-3 py-2 rounded-full font-bold"
+        >
+          📎 સ્કેન
+        </button>
         {isTtsSupported && (
           <button
-            onClick={() => { if (isSpeaking) stopSpeaking(); setTtsEnabled(p => !p) }}
-            className="press rounded-xl flex items-center justify-center text-lg flex-shrink-0"
-            style={{
-              width: 38, height: 38,
-              background: ttsEnabled ? 'rgba(255,255,255,.9)' : 'rgba(255,255,255,.15)',
-              color: ttsEnabled ? '#7C3AED' : 'white',
+            onClick={() => {
+              if (isSpeaking) stopSpeaking()
+              setTtsEnabled(prev => !prev)
             }}
-          >{ttsEnabled ? '🔊' : '🔇'}</button>
+            className={`text-xs px-3 py-2 rounded-full font-bold ${
+              ttsEnabled
+                ? 'bg-white text-purple-700'
+                : 'bg-purple-500 text-white'
+            }`}
+          >
+            {ttsEnabled ? '🔊 અવાજ ચાલુ' : '🔇 અવાજ બંધ'}
+          </button>
         )}
       </div>
 
-      {/* Safety tip */}
+      {/* ── Safety Tip Banner ── */}
       <SafetyTipBanner />
 
-      {/* ══ MESSAGES ══ */}
-      <div className="flex-1 overflow-y-auto px-4 pt-3 pb-2" style={{ overscrollBehavior: 'contain' }}>
+      {/* ── Messages ── */}
+      <div className="flex-1 overflow-y-auto px-4 pt-4 pb-2">
 
-        {/* Quick-reply chips row — shown before first send */}
-        {showChips && (
+        {/* Quick Reply chips — show only at start */}
+        {showQuickReplies && (
           <div className="mb-4">
-            <p className="text-center text-xs font-semibold mb-2" style={{ color: '#A8A29E' }}>
-              — પ્રશ્ન પૂછો અથવા નીચેથી પસંદ કરો —
+            <p className="text-xs text-gray-400 mb-2 text-center">
+              — પ્રશ્ન પુછો અથવા નીચેથી પસંદ કરો —
             </p>
             <div className="flex flex-wrap gap-2 justify-center">
               {QUICK_REPLIES.map(q => (
                 <button
                   key={q.id}
-                  onClick={() => { setActiveChip(q.id); handleSend(q.text) }}
-                  className="press text-xs font-bold px-3 py-2 rounded-full"
-                  style={{
-                    minHeight: 36,
-                    background: activeChip === q.id ? '#7C3AED' : '#EDE9FE',
-                    border: `1.5px solid ${activeChip === q.id ? '#7C3AED' : '#C4B5FD'}`,
-                    color: activeChip === q.id ? '#fff' : '#5B21B6',
-                    transition: 'all .2s ease',
-                  }}
+                  onClick={() => handleSend(q.text)}
+                  className="bg-purple-50 border border-purple-300 text-purple-700 text-xs px-3 py-2 rounded-full font-medium active:bg-purple-100 transition-colors"
                 >
                   {q.emoji} {q.text}
                 </button>
@@ -278,7 +323,7 @@ export default function ChatScreen() {
           </div>
         )}
 
-        {/* Messages */}
+        {/* Message list */}
         {messages.map(msg => (
           <ChatBubble
             key={msg.id}
@@ -291,83 +336,74 @@ export default function ChatScreen() {
           />
         ))}
 
+        {/* Typing indicator */}
         {loading && <TypingIndicator />}
+
         <div ref={bottomRef} />
       </div>
 
-      {/* ══ INPUT AREA ══ */}
-      <div className="flex-shrink-0 bg-white px-3 py-3"
-        style={{ borderTop: '1px solid #EDE9FE', boxShadow: '0 -2px 12px rgba(124,58,237,.07)' }}>
+      {/* ── Input Area ── */}
+      <div className="bg-white border-t border-gray-200 px-3 py-2">
 
-        {/* Language selector */}
+        {/* Language selector row */}
         <div className="flex justify-end mb-2">
-          <LanguageSelector selected={selectedLang} onChange={handleLangChange} />
+          <LanguageSelector
+            selected={selectedLang}
+            onChange={handleLanguageChange}
+          />
         </div>
 
-        {/* Row */}
-        <div className="flex items-center gap-2">
+        {/* Input row */}
+        <div className="flex items-end gap-2">
 
-          {/* Attachment */}
+          {/* Attach/Scan button */}
           <button
             onClick={() => navigate('/scan')}
-            className="press flex items-center justify-center rounded-2xl text-xl flex-shrink-0"
-            style={{ width: 44, height: 44, background: '#EDE9FE' }}
-          >📎</button>
+            className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-xl flex-shrink-0"
+          >
+            📎
+          </button>
 
-          {/* Input */}
-          <input
+          {/* Text input */}
+          <textarea
             ref={inputRef}
-            type="text"
             value={input}
             onChange={e => setInput(e.target.value)}
-            onKeyDown={onKeyDown}
+            onKeyDown={handleKeyDown}
             placeholder="બોલો 🎤 અથવા ટાઇપ કરો..."
-            className="flex-1 min-w-0 text-sm font-semibold outline-none rounded-full px-4"
-            style={{
-              height: 44,
-              border: `1.5px solid ${input ? '#7C3AED' : '#E5E7EB'}`,
-              boxShadow: input ? '0 0 0 3px #EDE9FE' : 'none',
-              transition: 'border-color .2s, box-shadow .2s',
-              background: '#FAFAF9',
-              color: '#1C1917',
-            }}
+            rows={1}
+            className="flex-1 border border-gray-300 rounded-2xl px-4 py-2 text-sm outline-none resize-none focus:border-purple-400 max-h-24"
+            style={{ lineHeight: '1.5' }}
           />
 
-          {/* Mic */}
-          <div className="relative flex-shrink-0">
-            {isListening && <>
-              <div className="mic-ring" />
-              <div className="mic-ring mic-ring-2" />
-            </>}
-            <MicButton
-              isListening={isListening}
-              isSupported={isSupported}
-              onPress={startListening}
-              onRelease={stopListening}
-            />
-          </div>
+          {/* Mic button */}
+          <MicButton
+            isListening={isListening}
+            isSupported={isSupported}
+            onPress={startListening}
+            onRelease={stopListening}
+          />
 
-          {/* Send */}
+          {/* Send button */}
           <button
             onClick={() => handleSend()}
             disabled={loading || !input.trim()}
-            className="press flex items-center justify-center rounded-2xl text-white flex-shrink-0"
-            style={{
-              width: 44, height: 44,
-              background: input.trim() && !loading ? 'linear-gradient(135deg,#7C3AED,#6D28D9)' : '#D1D5DB',
-              transition: 'background .2s',
-              cursor: input.trim() && !loading ? 'pointer' : 'not-allowed',
-            }}
+            className={`w-10 h-10 rounded-full flex items-center justify-center text-white flex-shrink-0 transition-colors ${
+              input.trim() && !loading
+                ? 'bg-purple-700 active:bg-purple-800'
+                : 'bg-gray-300 cursor-not-allowed'
+            }`}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M22 2L11 13" /><path d="M22 2L15 22 11 13 2 9l20-7z" />
-            </svg>
+            ➤
           </button>
         </div>
       </div>
 
-      <ListeningOverlay isListening={isListening} transcript={liveTranscript} />
+      {/* Listening overlay — outside input area */}
+      <ListeningOverlay
+        isListening={isListening}
+        transcript={liveTranscript}
+      />
     </div>
   )
 }

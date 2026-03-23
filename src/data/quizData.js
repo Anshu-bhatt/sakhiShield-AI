@@ -154,6 +154,56 @@ export const QUIZZES = [
         feedbackCorrect: 'સાચું! Official companies email links ક્યારેય આપતા નથી।',
         feedbackIncorrect: 'ખોટું! આ phishing scam છે।',
         points: 20
+      },
+      {
+        questionId: 'q16',
+        scene: 'SMS: "Your ICICI bank card is blocked. Call urgently: 9999-8888-7777"',
+        question: 'તમે call કરશો?',
+        options: ['હા! તરત call કર', 'ના — Official bank number use કર તમારા card ના પાછળ ✅', 'SMS reply કર', 'Link message માં ચેક કર'],
+        correctAnswer: 'ના — Official bank number use કર તમારા card ના પાછળ ✅',
+        feedbackCorrect: 'બરોબર! Fake number = trust breaking scam.',
+        feedbackIncorrect: 'ખોટું! Unknown numbers ને trust ન કર।',
+        points: 20
+      },
+      {
+        questionId: 'q17',
+        scene: 'Facebook ad: "Make ₹1 Lakh monthly! No experience needed. Free registration"',
+        question: 'તમે register કરશો?',
+        options: ['હા! ₹1 Lakh = 100% સાચું', 'ના — Too good to be true = definitely scam ✅', 'તમારો ID proof share કર', 'Bank details ચેક કર પછી'],
+        correctAnswer: 'ના — Too good to be true = definitely scam ✅',
+        feedbackCorrect: 'સાચું! Easy high income = scam pattern.',
+        feedbackIncorrect: 'ખોટું! આ work from home scam છે।',
+        points: 20
+      },
+      {
+        questionId: 'q18',
+        scene: 'WhatsApp group: "Urgent! Forward આ message હોર આપને નહલે credit card block થશે"',
+        question: 'તમે forward કરશો?',
+        options: ['હા! તરત forward કર', 'ના — Chain messages ક્યારેય forward ન કર - તમામ scam છે ✅', 'તમારા پ્રિય મિત્રોને મોકલو', 'બધાને forward કર'],
+        correctAnswer: 'ના — Chain messages ક્યારેય forward ન કર - તમામ scam છે ✅',
+        feedbackCorrect: 'બરાબર! Chain messages = social engineering છે।',
+        feedbackIncorrect: 'ખોટું! Chain messages ક્યારેય forward ન કર।',
+        points: 20
+      },
+      {
+        questionId: 'q19',
+        scene: 'Unknown call: "Madam! આપનો parcel customs પર stuck છે. Fee આપો તરત"',
+        question: 'તમે payment આપશો?',
+        options: ['હા! Parcel important છે', 'ના — Courier companies cash લેતા નથી. Email proof લો ✅', 'Bank account number જણાવો', 'Payment gateway use કર'],
+        correctAnswer: 'ના — Courier companies cash લેતા નથી. Email proof લો ✅',
+        feedbackCorrect: 'સાચું! Fake courier = common scam.',
+        feedbackIncorrect: 'ખોટું! Real couriers official channels ઉપયોગ કરે છે।',
+        points: 20
+      },
+      {
+        questionId: 'q20',
+        scene: 'Instagram story ad: "Skin whitening cream 90% off! Doctor recommended"',
+        question: 'તમે buy કરશો?',
+        options: ['હા! Doctor recommended છે', 'ના — Instagram ads ચેક કર, reviews જુઓ, dermatologist પૂછો ✅', 'તરત order કર', 'Cash on delivery આવશે'],
+        correctAnswer: 'ના — Instagram ads ચેક કર, reviews જુઓ, dermatologist પૂછો ✅',
+        feedbackCorrect: 'બરાબર! Fake credentials = makeup marketing છે।',
+        feedbackIncorrect: 'ખોટું! Unverified products ખતરનાક હોઈ શકે છે।',
+        points: 20
       }
     ]
   }
