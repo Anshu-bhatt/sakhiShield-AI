@@ -4,6 +4,9 @@ import dotenv from 'dotenv'
 import fs from 'fs'
 import path from 'path'
 import googleTTS from 'google-tts-api'
+import { connectDB } from './db/db.js'
+import { UserDevice, AlertLog, FraudDetection, Quiz, QuizResult } from './db/models.js'
+import { QUIZZES } from './src/data/quizData.js'
 
 function loadEnvFile(fileName = '.env.local') {
   const envPath = path.resolve(process.cwd(), fileName)
@@ -38,8 +41,11 @@ function getGroqApiKey() {
 
 loadEnvFile('.env.local')
 
+// Connect to MongoDB
+connectDB()
+
 const app = express()
-const PORT = 5000
+const PORT = process.env.PORT || 5000
 
 // Middleware
 app.use(cors())
@@ -49,7 +55,7 @@ app.get('/', (req, res) => {
   res.status(200).json({
     service: 'SakhiShield backend',
     status: 'ok',
-    endpoints: ['/api/grok', '/api/tts']
+    endpoints: ['/api/grok', '/api/tts', '/api/register-device', '/api/save-alert', '/api/save-fraud', '/api/alerts/:deviceId', '/api/frauds/:deviceId']
   })
 })
 
@@ -150,7 +156,255 @@ app.post('/api/grok', async (req, res) => {
   }
 })
 
-app.listen(PORT, () => {
+// Register/Get User Device
+app.post('/api/register-device', async (req, res) => {
+  try {
+    const { deviceId } = req.body
+
+    let user = await UserDevice.findOne({ deviceId })
+    if (!user) {
+      user = new UserDevice({ deviceId })
+      await user.save()
+      console.log(`✅ New device registered: ${deviceId}`)
+    } else {
+      user.lastActive = new Date()
+      await user.save()
+    }
+
+    res.json({ success: true, deviceId })
+  } catch (error) {
+    console.error('❌ Device registration error:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// Save Alert Log
+app.post('/api/save-alert', async (req, res) => {
+  try {
+    const { deviceId, message, type } = req.body
+    const alert = new AlertLog({ deviceId, message, type })
+    await alert.save()
+    console.log(`📢 Alert saved for device ${deviceId}`)
+    res.json({ success: true })
+  } catch (error) {
+    console.error('❌ Alert save error:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// Save Fraud Detection
+app.post('/api/save-fraud', async (req, res) => {
+  try {
+    const { deviceId, fraudType, details, severity } = req.body
+    const fraud = new FraudDetection({ deviceId, fraudType, details, severity })
+    await fraud.save()
+    console.log(`🚨 Fraud detected for device ${deviceId}: ${fraudType}`)
+    res.json({ success: true })
+  } catch (error) {
+    console.error('❌ Fraud save error:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// Get User's Alert Logs
+app.get('/api/alerts/:deviceId', async (req, res) => {
+  try {
+    const alerts = await AlertLog.find({ deviceId: req.params.deviceId }).sort({ timestamp: -1 })
+    res.json({ alerts })
+  } catch (error) {
+    console.error('❌ Get alerts error:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// Get User's Fraud Detection Logs
+app.get('/api/frauds/:deviceId', async (req, res) => {
+  try {
+    const frauds = await FraudDetection.find({ deviceId: req.params.deviceId }).sort({ timestamp: -1 })
+    res.json({ frauds })
+  } catch (error) {
+    console.error('❌ Get frauds error:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// Save Quiz Result
+app.post('/api/save-quiz-result', async (req, res) => {
+  try {
+    const { deviceId, quizId, score, totalQuestions, percentage } = req.body
+    const result = new QuizResult({
+      deviceId,
+      quizId,
+      score,
+      totalQuestions,
+      percentage
+    })
+    await result.save()
+    console.log(`📊 Quiz result saved: ${quizId} - Score ${score}/${totalQuestions}`)
+    res.json({ success: true, message: 'Quiz result saved' })
+  } catch (error) {
+    console.error('❌ Save quiz result error:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// Get Quiz History for Device
+app.get('/api/quiz-history/:deviceId', async (req, res) => {
+  try {
+    const history = await QuizResult.find({ deviceId: req.params.deviceId }).sort({ completedAt: -1 })
+    res.json({ history })
+  } catch (error) {
+    console.error('❌ Get quiz history error:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// Initialize quizzes in database (if not already there)
+app.post('/api/init-quizzes', async (req, res) => {
+  try {
+    for (const quiz of QUIZZES) {
+      const exists = await Quiz.findOne({ quizId: quiz.quizId })
+      if (!exists) {
+        await Quiz.create(quiz)
+      }
+    }
+    console.log('✅ Quizzes initialized')
+    res.json({ success: true, message: 'Quizzes initialized' })
+  } catch (error) {
+    console.error('❌ Quiz init error:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// Get all quizzes
+app.get('/api/quizzes', async (req, res) => {
+  try {
+    const quizzes = await Quiz.find({})
+    res.json({ quizzes })
+  } catch (error) {
+    console.error('❌ Get quizzes error:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// Get single quiz with questions
+app.get('/api/quiz/:quizId', async (req, res) => {
+  try {
+    const quiz = await Quiz.findOne({ quizId: req.params.quizId })
+    if (!quiz) {
+      return res.status(404).json({ error: 'Quiz not found' })
+    }
+    res.json({ quiz })
+  } catch (error) {
+    console.error('❌ Get quiz error:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// Get random questions from quiz (5 random questions out of total)
+app.get('/api/quiz-random/:quizId', async (req, res) => {
+  try {
+    const quiz = await Quiz.findOne({ quizId: req.params.quizId })
+    if (!quiz) {
+      return res.status(404).json({ error: 'Quiz not found' })
+    }
+
+    // Function to get random elements from array
+    const getRandomQuestions = (questions, count = 5) => {
+      const shuffled = [...questions].sort(() => Math.random() - 0.5)
+      return shuffled.slice(0, Math.min(count, questions.length))
+    }
+
+    const randomQuestions = getRandomQuestions(quiz.questions, 5)
+    const quizWithRandomQuestions = {
+      ...quiz.toObject(),
+      questions: randomQuestions
+    }
+
+    console.log(`🎲 Random questions selected: ${randomQuestions.map(q => q.questionId).join(', ')}`)
+    res.json({ quiz: quizWithRandomQuestions })
+  } catch (error) {
+    console.error('❌ Get random quiz error:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// Submit quiz answers
+app.post('/api/submit-quiz', async (req, res) => {
+  try {
+    const { deviceId, quizId, answers } = req.body
+
+    const quiz = await Quiz.findOne({ quizId })
+    if (!quiz) {
+      return res.status(404).json({ error: 'Quiz not found' })
+    }
+
+    let score = 0
+    const processedAnswers = answers.map((answer) => {
+      const question = quiz.questions.find((q) => q.questionId === answer.questionId)
+      const isCorrect = answer.selectedAnswer === question.correctAnswer
+      if (isCorrect) score++
+
+      return {
+        questionId: answer.questionId,
+        selectedAnswer: answer.selectedAnswer,
+        correctAnswer: question.correctAnswer,
+        isCorrect
+      }
+    })
+
+    const totalQuestions = quiz.questions.length
+    const percentage = Math.round((score / totalQuestions) * 100)
+
+    const result = new QuizResult({
+      deviceId,
+      quizId,
+      score,
+      totalQuestions,
+      percentage,
+      answers: processedAnswers
+    })
+
+    await result.save()
+    console.log(`📊 Quiz submitted: ${quizId} - Score ${score}/${totalQuestions}`)
+
+    res.json({
+      success: true,
+      score,
+      totalQuestions,
+      percentage,
+      answers: processedAnswers
+    })
+  } catch (error) {
+    console.error('❌ Submit quiz error:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// Get quiz history for device
+app.get('/api/quiz-history/:deviceId', async (req, res) => {
+  try {
+    const history = await QuizResult.find({ deviceId: req.params.deviceId }).sort({ completedAt: -1 })
+    res.json({ history })
+  } catch (error) {
+    console.error('❌ Get quiz history error:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+app.listen(PORT, async () => {
   console.log(`🚀 Backend server running at http://localhost:${PORT}`)
   console.log(`📌 Using Groq API with key: ${getGroqApiKey() ? '✅ Loaded' : '❌ Not found'}`)
+
+  // Initialize quizzes on startup
+  try {
+    for (const quiz of QUIZZES) {
+      // Delete existing quiz if it exists and re-create with new schema
+      await Quiz.deleteOne({ quizId: quiz.quizId })
+      await Quiz.create(quiz)
+      console.log(`✅ Quiz initialized: ${quiz.quizId}`)
+    }
+  } catch (error) {
+    console.error('❌ Failed to initialize quizzes:', error)
+  }
 })
