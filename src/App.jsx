@@ -5,6 +5,8 @@ import HomeScreen from './screens/HomeScreen'
 import ChatScreen from './screens/ChatScreen'
 import QuizScreen from './screens/QuizScreen'
 import ProfileScreen from './screens/ProfileScreen'
+import SchemesScreen from './screens/SchemesScreen'
+import SchemeDetailScreen from './screens/SchemeDetailScreen'
 import { registerDevice } from './api/Database_API'
 import { getDeviceId } from './utils/deviceId'
 
@@ -46,6 +48,8 @@ export default function App() {
         <Route path="/" element={<HomeScreen />} />
         <Route path="/chat" element={<ChatScreen />} />
         <Route path="/quiz" element={<QuizScreen />} />
+        <Route path="/schemes" element={<SchemesScreen />} />
+        <Route path="/scheme/:schemeId" element={<SchemeDetailScreen />} />
         <Route path="/profile" element={<ProfileScreen />} />
         <Route path="/scan" element={<ScanScreen />} />
       </Routes>
