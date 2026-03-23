@@ -1,15 +1,483 @@
-/* src/index.css — REPLACE entire file */
 @import "tailwindcss";
 
-* {
+/* ── Phone-width frame ───────────────────────────────────────── */
+*,
+*::before,
+*::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  height: 100%;
+  overflow-x: hidden;
 }
 
 body {
-  font-family: 'Segoe UI', sans-serif;
-  background: #f9fafb;
+  font-family: 'Nunito', 'Segoe UI', system-ui, sans-serif;
+  background: #e5e7eb;
+  /* grey surround on desktop */
+  min-height: 100%;
+  overflow-x: hidden;
+}
+
+/* The inner app shell — phone sized, centred */
+#root {
   max-width: 480px;
+  min-height: 100svh;
+  min-height: 100vh;
   margin: 0 auto;
+  background: #FAFAF9;
+  position: relative;
+  overflow-x: hidden;
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.18);
+}
+
+/* ── Keyframes ────────────────────────────────────────────────── */
+
+@keyframes shieldFloat {
+
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+
+  50% {
+    transform: translateY(-10px) scale(1.04);
+  }
+}
+
+@keyframes shieldPulse {
+
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(124, 58, 237, 0.35);
+  }
+
+  55% {
+    box-shadow: 0 0 0 18px rgba(124, 58, 237, 0);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(32px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes bubbleIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes dotBounce {
+
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: .45;
+  }
+
+  30% {
+    transform: translateY(-7px);
+    opacity: 1;
+  }
+}
+
+@keyframes tipFade {
+  from {
+    opacity: 0;
+    transform: translateX(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes toastDrop {
+  from {
+    opacity: 0;
+    transform: translateY(-64px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes micRing {
+  0% {
+    transform: scale(1);
+    opacity: .7;
+  }
+
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+@keyframes fabFloat {
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes spinSlow {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes popBounce {
+  0% {
+    opacity: 0;
+    transform: scale(.5);
+  }
+
+  70% {
+    transform: scale(1.12);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes onlineRing {
+
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: .8;
+  }
+
+  50% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+
+/* ── Animation classes ────────────────────────────────────────── */
+.anim-shield-float {
+  animation: shieldFloat 3.2s ease-in-out infinite;
+}
+
+.anim-shield-pulse {
+  animation: shieldPulse 2.2s ease-in-out infinite;
+}
+
+.anim-slide-up {
+  animation: slideUp .48s cubic-bezier(.2, .8, .4, 1) both;
+}
+
+.anim-fade-in {
+  animation: fadeIn .4s ease both;
+}
+
+.anim-bubble-in {
+  animation: bubbleIn .32s cubic-bezier(.2, .8, .4, 1) both;
+}
+
+.anim-toast {
+  animation: toastDrop .4s cubic-bezier(.2, .8, .4, 1) both;
+}
+
+.anim-fab {
+  animation: fabFloat 2.8s ease-in-out infinite;
+}
+
+.anim-spin {
+  animation: spinSlow 1.4s linear infinite;
+}
+
+.anim-pop {
+  animation: popBounce .45s cubic-bezier(.2, .8, .4, 1) both;
+}
+
+/* Stagger helpers */
+.d-100 {
+  animation-delay: .10s;
+}
+
+.d-200 {
+  animation-delay: .20s;
+}
+
+.d-300 {
+  animation-delay: .30s;
+}
+
+.d-400 {
+  animation-delay: .40s;
+}
+
+.d-500 {
+  animation-delay: .50s;
+}
+
+/* Typing dots */
+.dot-bounce {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #7C3AED;
+  display: inline-block;
+  animation: dotBounce 1.3s ease-in-out infinite;
+}
+
+.dot-bounce:nth-child(2) {
+  animation-delay: .18s;
+}
+
+.dot-bounce:nth-child(3) {
+  animation-delay: .36s;
+}
+
+/* Mic rings */
+.mic-ring {
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 2px solid rgba(239, 68, 68, .55);
+  animation: micRing 1s ease-out infinite;
+  pointer-events: none;
+}
+
+.mic-ring-2 {
+  animation-delay: .5s;
+}
+
+/* Online dot ring */
+.online-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: #10B981;
+  animation: onlineRing 1.6s ease-in-out infinite;
+}
+
+/* Press feedback */
+.press {
+  transition: transform .12s ease, opacity .12s ease;
+}
+
+.press:active {
+  transform: scale(.95);
+  opacity: .9;
+}
+
+/* Horizontal chip scroll */
+.chip-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 0 16px 6px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.chip-row::-webkit-scrollbar {
+  display: none;
+}
+
+/* Safety tip transition */
+.tip-text {
+  transition: opacity .35s ease, transform .35s ease;
+}
+
+.tip-hide {
+  opacity: 0;
+  transform: translateX(8px);
+}
+
+/* Bottom sheet */
+.sheet-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.sheet-bg {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, .4);
+  animation: fadeIn .25s ease both;
+}
+
+.sheet-card {
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+  background: #fff;
+  border-radius: 24px 24px 0 0;
+  padding: 20px 20px 36px;
+  animation: slideUp .38s cubic-bezier(.2, .8, .4, 1) both;
+  z-index: 1;
+}
+
+.sheet-handle {
+  width: 40px;
+  height: 4px;
+  border-radius: 99px;
+  background: #e5e7eb;
+  margin: 0 auto 20px;
+}
+
+/* ── Quiz Animations ─────────────────────────────────────────── */
+
+@keyframes floatUp {
+  0% {
+    transform: translateY(100vh);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-100vh);
+    opacity: 0;
+  }
+}
+
+@keyframes badgePop {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes goldenGlow {
+  0%, 100% {
+    opacity: 0.6;
+    transform: rotate(0deg);
+  }
+  50% {
+    opacity: 0.9;
+    transform: rotate(180deg);
+  }
+}
+
+@keyframes pointFloat {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-30px) scale(1.2);
+    opacity: 0;
+  }
+}
+
+@keyframes shakeWrong {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-10px); }
+  75% { transform: translateX(10px); }
+}
+
+@keyframes correctPulse {
+  0% {
+    transform: scale(1);
+    background-color: rgb(16 185 129);
+  }
+  50% {
+    transform: scale(1.05);
+    background-color: rgb(5 150 105);
+  }
+  100% {
+    transform: scale(1);
+    background-color: rgb(16 185 129);
+  }
+}
+
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── Quiz Animation Classes ──────────────────────────────────── */
+
+.animate-floatUp {
+  animation: floatUp var(--duration, 3s) linear infinite;
+}
+
+.animate-badgePop {
+  animation: badgePop 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.animate-goldenGlow {
+  animation: goldenGlow 2s ease-in-out infinite;
+}
+
+.animate-pointFloat {
+  animation: pointFloat 1s ease-out forwards;
+}
+
+.animate-shakeWrong {
+  animation: shakeWrong 0.6s ease-in-out;
+}
+
+.animate-correctPulse {
+  animation: correctPulse 0.6s ease-in-out;
+}
+
+.animate-spin-slow {
+  animation: spin-slow 4s linear infinite;
 }

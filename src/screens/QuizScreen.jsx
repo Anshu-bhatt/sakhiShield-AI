@@ -1,470 +1,445 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getDeviceId } from '../utils/deviceId'
-import { saveFraud, saveQuizResult } from '../api/Database_API'
-import './QuizScreen.css'
-
-// Static quiz data - no API required
-const STATIC_QUIZ_QUESTIONS = [
-  {
-    questionId: 'q1',
-    scene: 'તમને WhatsApp પર message આવ્યો: "Congratulations! તમે ₹50,000 જીત્યા. ઇનામ લેવા આધાર + PAN card photo મોકલો."',
-    question: 'તમે શું કરશો?',
-    options: ['ફટાફટ document મોકલો', 'Message ignore કરો અને 1930 પર report કરો ✅', 'Friend ને પૂછો', 'ફક્ત આધાર મોકલો'],
-    correctAnswer: 'Message ignore કરો અને 1930 પર report કરો ✅',
-    feedbackCorrect: 'શાબ્બાશ! ઇનામ-ઇનામ message = 100% ફ્રૉડ. Document ક્યારેય ન મોકલો.',
-    feedbackIncorrect: 'ના! આ ફ્રૉડ છે. 1930 = સાઇબર ક્રાઇમ હેલ્પલાઇન.',
-    points: 20
-  },
-  {
-    questionId: 'q2',
-    scene: 'રમા બહેનને ફોન આવ્યો: "હું SBI bank manager છું. તમારું account બંધ થઈ જશે. OTP જણાવો."',
-    question: 'OTP આપવો જોઈએ?',
-    options: ['હા, account બચાવવા આપવો પડે', 'ના — બેંક ક્યારેય OTP ફોન પર નથી માંગતી ✅', 'OTP ના છેલ્લા 2 digit જ આપો', 'Bank branch જઈને verify કરો'],
-    correctAnswer: 'ના — બેંક ક્યારેય OTP ફોન પર નથી માંગતી ✅',
-    feedbackCorrect: '100% સાચું! OTP = ATM ની ચાવી. ફોન પર ક્યારેય ન આપો।',
-    feedbackIncorrect: 'ખોટું! Bank ક્યારેય OTP ફોન પર નથી માંગતી।',
-    points: 20
-  },
-  {
-    questionId: 'q3',
-    scene: 'તમને UPI app માં "Collect Request" આવ્યો ₹500 ના માટે unknown number તરફથી।',
-    question: 'Request accept કરવો?',
-    options: ['હા — receive કરવા accept કરવો પડે', 'ના — Collect Request Decline કરો ✅', 'પહેલાં બીજું કશું ચેક કરો', 'આધી રકમ accept કરો'],
-    correctAnswer: 'ના — Collect Request Decline કરો ✅',
-    feedbackCorrect: 'બિલકુલ! UPI Collect = તમારો પૈસા જાય. Decline કરો!',
-    feedbackIncorrect: 'ના! Collect Request એટલે તમારો પૈસો બહાર જાય છે।',
-    points: 20
-  },
-  {
-    questionId: 'q4',
-    scene: 'તમને આવ્યો message: "તમે ₹10,000 loan માટે qualify થયા છો. અહીં click કરો — unknown number તરફથી"',
-    question: 'Link પર click કરવું?',
-    options: ['હા — ₹10,000 ની જરૂર છે', 'ના — Link delete કરો અને number block કરો ✅', 'Link ખોલો પણ કોઈ info ન ભરો', 'Friend ને પૂછો'],
-    correctAnswer: 'ના — Link delete કરો અને number block કરો ✅',
-    feedbackCorrect: 'સવો જવાબ! Fake loan links = bank details ચોરાય. Real loan માટે bank branch જો।',
-    feedbackIncorrect: 'ના! આ fake loan link છે। Link delete કરો, number block કરો।',
-    points: 20
-  },
-  {
-    questionId: 'q5',
-    scene: 'WhatsApp પર: "Govt scheme — ₹2000 તમારા account મા આવશે. Aadhar + bank passbook photo મોકલો"',
-    question: 'આ message ને કેમ શંકા થાય છે?',
-    options: ['Government ક્યારેય photo માંગતો નથી ✅', 'Message બہુ ઔપચારિક લાગે છે', 'Link ખૂબ લાંબો છે', 'કોઈ શંકા નથી — તરત photo મોકલો'],
-    correctAnswer: 'Government ક્યારેય photo માંગતો નથી ✅',
-    feedbackCorrect: 'બિલકુલ! Government ક્યારેય WhatsApp પર photo માંગતો નથી.',
-    feedbackIncorrect: 'ખોટું! Government ક્યારેય આ રીતે contact કરતો નથી।',
-    points: 20
-  }
-]
-
-// Function to shuffle array with verified randomization
-function shuffleArray(array) {
-  const shuffled = [...array]
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    console.log(`  Swap positions ${i} ↔ ${j}`)
-    ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
-  }
-  const order = shuffled.map(q => q.questionId || q.id).join(' → ')
-  console.log('✅ Questions shuffled:', order)
-  return shuffled
-}
-
-// Function to shuffle question options but track correct answer
-function shuffleOptions(question) {
-  const optionsWithIndex = question.options.map((opt) => ({
-    text: opt,
-    isCorrect: opt === question.correctAnswer
-  }))
-
-  const shuffled = shuffleArray(optionsWithIndex)
-  const newCorrectIndex = shuffled.findIndex(opt => opt.isCorrect)
-
-  console.log(`📝 ${question.questionId}: Options shuffled - Correct answer moved to position ${newCorrectIndex}`)
-
-  return {
-    ...question,
-    options: shuffled.map(opt => opt.text),
-    correct: newCorrectIndex,
-    feedback: {
-      correct: question.feedbackCorrect,
-      incorrect: question.feedbackIncorrect
-    }
-  }
-}
+import { generateQuiz, submitQuiz } from '../api/quizApi'
+import StarParticles from '../components/StarParticles'
+import RewardBadge from '../components/RewardBadge'
 
 export default function QuizScreen() {
   const navigate = useNavigate()
-  const [currentQuestion, setCurrentQuestion] = useState(0)
-  const [score, setScore] = useState(0)
-  const [answered, setAnswered] = useState(false)
-  const [selectedAnswer, setSelectedAnswer] = useState(null)
-  const [quizComplete, setQuizComplete] = useState(false)
+
+  // States for quiz flow
+  const [screen, setScreen] = useState('loading') // loading, start, question, results
+  const [questions, setQuestions] = useState([])
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
+  const [answers, setAnswers] = useState({})
+  const [selectedAnswer, setSelectedAnswer] = useState('')
   const [showResult, setShowResult] = useState(false)
-  const [shuffledQuestions, setShuffledQuestions] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [speaking, setSpeaking] = useState(false)
-  const deviceId = getDeviceId()
+  const [timeLeft, setTimeLeft] = useState(30) // seconds per question
+  const [startTime, setStartTime] = useState(null)
+  const [quizId, setQuizId] = useState('')
 
-  // Text-to-Speech function
-  const speakQuestion = async () => {
-    if (speaking || questions.length === 0) return
+  // States for results
+  const [quizResult, setQuizResult] = useState(null)
+  const [pointsFloating, setPointsFloating] = useState('')
+  const [currentPoints, setCurrentPoints] = useState(0)
 
-    const question = questions[currentQuestion]
-    // Just read the question, not the full scene + options (to avoid exceeding TTS limit)
-    const textToSpeak = question.question
-
-    setSpeaking(true)
-    try {
-      console.log('🔊 Speaking question...')
-      const response = await fetch('/api/tts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: textToSpeak, lang: 'gu' })
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-
-      const audioBlob = await response.blob()
-      const audioUrl = URL.createObjectURL(audioBlob)
-      const audio = new Audio(audioUrl)
-
-      audio.onended = () => {
-        setSpeaking(false)
-        URL.revokeObjectURL(audioUrl)
-      }
-
-      audio.onerror = () => {
-        setSpeaking(false)
-        console.error('❌ Audio playback failed')
-      }
-
-      audio.play().catch(err => {
-        setSpeaking(false)
-        console.error('❌ Play error:', err)
-      })
-    } catch (error) {
-      console.error('❌ TTS error:', error)
-      setSpeaking(false)
-    }
-  }
-
-  // Fetch and initialize quiz questions from MongoDB API
+  // Load fresh questions on mount
   useEffect(() => {
-    const initializeQuiz = async () => {
-      try {
-        console.log('🎯 Fetching quiz questions from MongoDB...')
-        const response = await fetch(`/api/quiz-random/gujarati_fraud_awareness?t=${Date.now()}`)
-
-        if (!response.ok) {
-          throw new Error(`API error: ${response.status}`)
-        }
-
-        const data = await response.json()
-
-        if (data.quiz && data.quiz.questions) {
-          console.log('🎯 Questions received from MongoDB:', data.quiz.questions.map(q => q.questionId).join(', '))
-          console.log('🎯 Shuffling answer options...')
-          const shuffled = data.quiz.questions.map(q => shuffleOptions(q))
-          console.log('✅ Quiz ready with shuffled answer options!')
-          setShuffledQuestions(shuffled)
-        } else {
-          throw new Error('No questions in response')
-        }
-      } catch (error) {
-        console.error('❌ Failed to load quiz from MongoDB:', error)
-        // Fallback to static data if API fails
-        console.log('📦 Using fallback static questions...')
-        const shuffled = STATIC_QUIZ_QUESTIONS.map(q => shuffleOptions(q))
-        setShuffledQuestions(shuffled)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    initializeQuiz()
+    loadQuiz()
   }, [])
 
-  // Use shuffled questions, fallback to empty array if not loaded yet
-  const questions = shuffledQuestions.length > 0 ? shuffledQuestions : []
-
-  if (loading) {
-    return (
-      <div className="quiz-container">
-        <div style={{ padding: '40px', textAlign: 'center', color: '#999' }}>
-          ક્વિઝ લોડ થઈ રહ્યું છે...
-        </div>
-      </div>
-    )
-  }
-
-  if (!loading && questions.length === 0) {
-    return (
-      <div className="quiz-container">
-        <div className="quiz-header-top">
-          <button onClick={() => navigate('/')} className="back-btn">
-            ← પાછું
-          </button>
-          <h2>ક્વિઝ</h2>
-          <div style={{ width: '60px' }}></div>
-        </div>
-        <div style={{ padding: '40px', textAlign: 'center', color: '#999' }}>
-          ક્વિઝ લોડ કરી શક્યા નથી. કૃપા પછીથી પ્રયાસ કરો.
-        </div>
-      </div>
-    )
-  }
-
-  const handleAnswer = (index) => {
-    if (answered) return
-    setSelectedAnswer(index)
-    setAnswered(true)
-
-    const isCorrect = index === questions[currentQuestion].correct
-    if (isCorrect) {
-      setScore(score + questions[currentQuestion].points)
-    } else {
-      // Save fraud alert for wrong answer
-      saveFraud(
-        'quiz_wrong_answer',
-        `Question: ${questions[currentQuestion].question}`,
-        'low'
-      )
+  // Timer for questions
+  useEffect(() => {
+    let timer
+    if (screen === 'question' && timeLeft > 0 && !showResult) {
+      timer = setTimeout(() => {
+        setTimeLeft(prev => prev - 1)
+      }, 1000)
+    } else if (timeLeft === 0 && !showResult) {
+      // Auto-submit when time runs out
+      handleAnswerSubmit('')
     }
+
+    return () => clearTimeout(timer)
+  }, [timeLeft, screen, showResult])
+
+  const loadQuiz = async () => {
+    try {
+      setScreen('loading')
+      const data = await generateQuiz()
+      setQuestions(data.questions)
+      setQuizId(data.quizId)
+
+      setTimeout(() => {
+        setScreen('start')
+      }, 2000) // Show loading for 2 seconds
+    } catch (error) {
+      console.error('Failed to load quiz:', error)
+      alert('ક્વિઝ લોડ કરવામાં સમસ્યા આવી. કૃપા પછીથી પ્રયાસ કરો.')
+      navigate('/')
+    }
+  }
+
+  const startQuiz = () => {
+    setScreen('question')
+    setStartTime(Date.now())
+    setTimeLeft(30)
+  }
+
+  const handleAnswerSelect = (option) => {
+    if (showResult) return
+    setSelectedAnswer(option)
+  }
+
+  const handleAnswerSubmit = (answer) => {
+    if (showResult) return
+
+    const finalAnswer = answer || selectedAnswer
+    setAnswers(prev => ({
+      ...prev,
+      [questions[currentQuestionIndex].id]: finalAnswer
+    }))
+
+    // Convert key to option text for correctness checking
+    const keyIndex = finalAnswer.charCodeAt(0) - 65 // Convert A,B,C,D to 0,1,2,3
+    const selectedOptionText = questions[currentQuestionIndex].options[keyIndex]
+    const isCorrect = selectedOptionText === questions[currentQuestionIndex].correctAnswer
+
+    if (isCorrect) {
+      const points = questions[currentQuestionIndex].points || 20
+      setCurrentPoints(prev => prev + points)
+      setPointsFloating(`+${points} ⭐`)
+
+      setTimeout(() => setPointsFloating(''), 1500)
+    }
+
     setShowResult(true)
   }
 
-  const handleNext = () => {
-    if (currentQuestion < questions.length - 1) {
-      setCurrentQuestion(currentQuestion + 1)
-      setAnswered(false)
-      setSelectedAnswer(null)
+  const nextQuestion = () => {
+    if (currentQuestionIndex < questions.length - 1) {
+      setCurrentQuestionIndex(prev => prev + 1)
+      setSelectedAnswer('')
       setShowResult(false)
+      setTimeLeft(30)
     } else {
-      setQuizComplete(true)
-      saveQuizResultData()
+      finishQuiz()
     }
   }
 
-  const saveQuizResultData = async () => {
-    const percentage = Math.round((score / (questions.length * 20)) * 100)
-    await saveQuizResult('gujarati_fraud_awareness', Math.round(score / 20), questions.length, percentage)
-  }
-
-  const resetQuiz = async () => {
-    console.log('🔄 Fetching NEW questions from MongoDB for restart...')
-    setCurrentQuestion(0)
-    setScore(0)
-    setAnswered(false)
-    setSelectedAnswer(null)
-    setQuizComplete(false)
-    setShowResult(false)
-
+  const finishQuiz = async () => {
     try {
-      const response = await fetch(`/api/quiz-random/gujarati_fraud_awareness?t=${Date.now()}`)
+      const timeTaken = Math.round((Date.now() - startTime) / 1000)
 
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`)
-      }
+      // Convert key-based answers (A, B, C, D) to option text
+      const convertedAnswers = {}
+      Object.keys(answers).forEach(questionId => {
+        const question = questions.find(q => q.id === questionId)
+        const selectedKey = answers[questionId]
+        if (question && selectedKey) {
+          const keyIndex = selectedKey.charCodeAt(0) - 65 // Convert A,B,C,D to 0,1,2,3
+          convertedAnswers[questionId] = question.options[keyIndex] || selectedKey
+        }
+      })
 
-      const data = await response.json()
-
-      if (data.quiz && data.quiz.questions) {
-        console.log('🔄 NEW questions from MongoDB:', data.quiz.questions.map(q => q.questionId).join(', '))
-        setTimeout(() => {
-          const newShuffled = data.quiz.questions.map(q => shuffleOptions(q))
-          console.log('✅ Quiz reset with NEW questions from MongoDB and shuffled options!')
-          setShuffledQuestions(newShuffled)
-        }, 0)
-      }
+      const result = await submitQuiz(quizId, questions, convertedAnswers, timeTaken)
+      setQuizResult(result)
+      setScreen('results')
     } catch (error) {
-      console.error('❌ Failed to reset quiz:', error)
-      // Fallback to static data
-      const newShuffled = STATIC_QUIZ_QUESTIONS.map(q => shuffleOptions(q))
-      setShuffledQuestions(newShuffled)
+      console.error('Failed to submit quiz:', error)
+      alert('પરિણામ સેવ કરવામાં સમસ્યા આવી.')
     }
   }
 
-  if (quizComplete) {
-    const percentage = Math.round((score / (questions.length * 20)) * 100)
-    const emoji = percentage >= 80 ? '🏆' : percentage >= 60 ? '👍' : '💪'
-    const title =
-      percentage >= 80
-        ? 'અભિનંદન, સખી ચેમ્પિયન!'
-        : percentage >= 60
-        ? 'સારો પ્રયાસ!'
-        : 'ફરી પ્રયાસ કરો!'
+  const restartQuiz = () => {
+    // Reset all states
+    setCurrentQuestionIndex(0)
+    setAnswers({})
+    setSelectedAnswer('')
+    setShowResult(false)
+    setCurrentPoints(0)
+    setQuizResult(null)
 
+    // Load fresh questions
+    loadQuiz()
+  }
+
+  const goToChat = () => {
+    navigate('/chat')
+  }
+
+  // SCREEN 1: LOADING
+  if (screen === 'loading') {
     return (
-      <div className="quiz-container">
-        <div className="quiz-header-top">
-          <button onClick={() => navigate('/')} className="back-btn">
-            ← હોમ
-          </button>
-          <h2>પરિણામ</h2>
-          <div style={{ width: '60px' }}></div>
-        </div>
-        <div className="result-card">
-          <div className="result-emoji">{emoji}</div>
-          <h2 className="result-title">{title}</h2>
-          <p className="result-score">
-            {Math.round(score / 20)}/{questions.length} સાચા જવાબ
+      <div className="min-h-screen bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 flex flex-col items-center justify-center relative overflow-hidden">
+        <StarParticles />
+
+        <div className="text-center z-10">
+          {/* Spinning Shield */}
+          <div className="text-8xl mb-8 animate-spin-slow">
+            🛡️
+          </div>
+
+          {/* Loading Text */}
+          <h2 className="text-white text-2xl font-bold mb-4">
+            નવા સવાલ તૈયાર થાય છે...
+          </h2>
+
+          {/* Animated Dots */}
+          <div className="flex justify-center gap-2 mb-6">
+            <div className="dot-bounce"></div>
+            <div className="dot-bounce"></div>
+            <div className="dot-bounce"></div>
+          </div>
+
+          <p className="text-purple-200 text-lg">
+            આજના scam scenarios લોડ થાય છે
           </p>
-          <div className="points-earned">+{score} પોઇન્ટ</div>
-          <button className="quiz-btn" onClick={resetQuiz}>
-            ફરી રમો
+        </div>
+      </div>
+    )
+  }
+
+  // SCREEN 2: START CARD
+  if (screen === 'start') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 flex items-center justify-center p-4">
+        <div className="bg-white rounded-3xl shadow-xl p-8 max-w-sm w-full text-center">
+          <div className="text-6xl mb-6">🏆</div>
+
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">
+            આજની સુરક્ષા ક્વિઝ
+          </h1>
+
+          <p className="text-gray-600 mb-8">
+            5 સવાલ • 100 points • ગુજરાતી
+          </p>
+
+          <div className="flex justify-center gap-4 mb-8">
+            <div className="bg-blue-50 px-4 py-2 rounded-full">
+              <span className="text-blue-600 font-medium">⏱️ 2 મિનિટ</span>
+            </div>
+            <div className="bg-purple-50 px-4 py-2 rounded-full">
+              <span className="text-purple-600 font-medium">❓ 5 સવાલ</span>
+            </div>
+            <div className="bg-amber-50 px-4 py-2 rounded-full">
+              <span className="text-amber-600 font-medium">⭐ 100 પોઇન્ટ</span>
+            </div>
+          </div>
+
+          <button
+            onClick={startQuiz}
+            className="w-full bg-gradient-to-r from-amber-400 to-amber-500 text-white font-bold py-4 px-8 rounded-full text-lg press animate-pulse hover:animate-none active:scale-95 transition-transform"
+          >
+            શરૂ કરો! 🚀
           </button>
         </div>
       </div>
     )
   }
 
-  const question = questions[currentQuestion]
-  const progress = ((currentQuestion + 1) / questions.length) * 100
+  // SCREEN 3: ACTIVE QUESTION
+  if (screen === 'question') {
+    const question = questions[currentQuestionIndex]
+    const progress = ((currentQuestionIndex + 1) / questions.length) * 100
+    const timePercent = (timeLeft / 30) * 100
 
-  return (
-    <div className="quiz-container">
-      {/* Header with Back Button */}
-      <div className="quiz-header-top">
-        <button onClick={() => navigate('/')} className="back-btn">
-          ← પાછું
-        </button>
-        <h2>ક્વિઝ</h2>
-        <div style={{ width: '60px' }}></div>
-      </div>
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700">
+        {/* Header Section */}
+        <div className="p-4 pb-6">
+          {/* Back Button */}
+          <button
+            onClick={() => navigate('/')}
+            className="text-white mb-4 press flex items-center gap-2"
+          >
+            ← પાછું
+          </button>
 
-      <div className="quiz-progress">
-        <div className="progress-bar">
-          <div className="progress-fill" style={{ width: `${progress}%` }}></div>
+          {/* Progress Bar */}
+          <div className="bg-white/20 rounded-full h-2 mb-4">
+            <div
+              className="bg-gradient-to-r from-violet-400 to-amber-400 h-full rounded-full transition-all duration-500"
+              style={{ width: `${progress}%` }}
+            ></div>
+          </div>
+
+          <div className="flex justify-between items-center text-white">
+            <span className="font-medium">સવાલ {currentQuestionIndex + 1} ની {questions.length}</span>
+            <span className="bg-white/20 px-3 py-1 rounded-full">⭐ {currentPoints} pts</span>
+          </div>
+
+          {/* Timer Bar */}
+          <div className="mt-3 bg-white/20 rounded-full h-1">
+            <div
+              className={`h-full rounded-full transition-all duration-1000 ${
+                timePercent > 50 ? 'bg-green-400' : timePercent > 20 ? 'bg-yellow-400' : 'bg-red-400'
+              }`}
+              style={{ width: `${timePercent}%` }}
+            ></div>
+          </div>
+        </div>
+
+        {/* Question Card */}
+        <div className="px-4">
+          <div className="bg-white rounded-3xl shadow-xl p-6 relative">
+            {/* Floating Points */}
+            {pointsFloating && (
+              <div className="absolute -top-4 right-4 text-amber-500 font-bold text-xl animate-pointFloat z-10">
+                {pointsFloating}
+              </div>
+            )}
+
+            {/* Category Chip */}
+            <div className="inline-block bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-sm font-medium mb-4">
+              💸 {question?.category || 'સુરક્ષા'}
+            </div>
+
+            {/* Question */}
+            <h3 className="text-xl font-bold text-gray-800 mb-6">
+              {question?.question}
+            </h3>
+
+            {/* Options */}
+            <div className="space-y-3 mb-6">
+              {(question?.options || []).map((option, index) => {
+                const key = String.fromCharCode(65 + index) // A, B, C, D
+                let buttonClass = "w-full p-4 text-left rounded-2xl border-2 transition-all press "
+
+                if (!showResult) {
+                  buttonClass += selectedAnswer === key
+                    ? "bg-violet-100 border-violet-600 text-violet-700"
+                    : "bg-white border-gray-200 hover:border-violet-300"
+                } else {
+                  if (option === question.correctAnswer) {
+                    buttonClass += "bg-emerald-50 border-emerald-500 text-emerald-700 animate-correctPulse"
+                  } else if (selectedAnswer === key && option !== question.correctAnswer) {
+                    buttonClass += "bg-red-50 border-red-400 text-red-600 animate-shakeWrong"
+                  } else {
+                    buttonClass += "bg-gray-50 border-gray-300 text-gray-500"
+                  }
+                }
+
+                return (
+                  <button
+                    key={key}
+                    onClick={() => handleAnswerSelect(key)}
+                    disabled={showResult}
+                    className={buttonClass}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="w-8 h-8 bg-violet-100 text-violet-700 rounded-full flex items-center justify-center font-bold text-sm">
+                        {key}
+                      </span>
+                      <span>{option}</span>
+                      {showResult && option === question.correctAnswer && (
+                        <span className="ml-auto text-emerald-600">✅</span>
+                      )}
+                      {showResult && selectedAnswer === key && option !== question.correctAnswer && (
+                        <span className="ml-auto text-red-500">❌</span>
+                      )}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Submit/Next Button */}
+            {!showResult ? (
+              <button
+                onClick={() => handleAnswerSubmit(selectedAnswer)}
+                disabled={!selectedAnswer}
+                className={`w-full py-4 rounded-2xl font-bold text-lg press transition-all ${
+                  selectedAnswer
+                    ? 'bg-gradient-to-r from-violet-500 to-purple-600 text-white'
+                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                }`}
+              >
+                જવાબ આપો
+              </button>
+            ) : (
+              <div className="space-y-4">
+                {/* Explanation */}
+                <div className="bg-violet-50 border-l-4 border-violet-500 p-4 rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <span className="text-xl">💡</span>
+                    <p className="text-violet-800">{question?.explanation}</p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={nextQuestion}
+                  className="w-full bg-gradient-to-r from-amber-400 to-amber-500 text-white font-bold py-4 rounded-2xl press"
+                >
+                  {currentQuestionIndex < questions.length - 1 ? 'આગે વધો →' : 'પરિણામ જુઓ 🏆'}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
+    )
+  }
 
-      <div className="quiz-header">
-        <span className="question-number">
-          સવાલ {currentQuestion + 1} / {questions.length}
-        </span>
-        <span className="points-badge">+{question.points} પોઇન્ટ</span>
-      </div>
+  // SCREEN 4: RESULTS
+  if (screen === 'results' && quizResult) {
+    const getGujaratiMessage = () => {
+      if (quizResult.score === 5) {
+        return "વાહ! તમે એક સાચા digital સુરક્ષા expert છો! 🏆"
+      } else if (quizResult.score === 4) {
+        return "બહુજ સરસ! તમે લગભગ champion છો! ⭐"
+      } else if (quizResult.score === 3) {
+        return "સારી કોશિશ! થોડી વાર practice કરજો! 🛡️"
+      } else {
+        return "હાર ના માનો! વધુ practice થી બધુ આવશે! 💪"
+      }
+    }
 
-      <div className="scenario-card">
-        <div className="scenario-label">📍 સ્થિતિ</div>
-        <p className="scenario-text">{question.scene}</p>
-      </div>
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 flex items-center justify-center p-4 relative overflow-hidden">
+        <StarParticles />
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-        <h3 className="question-text" style={{ flex: 1 }}>{question.question}</h3>
-        <button
-          onClick={speakQuestion}
-          disabled={speaking}
-          style={{
-            background: speaking ? '#ccc' : '#ff6b6b',
-            color: 'white',
-            border: 'none',
-            borderRadius: '50%',
-            width: '50px',
-            height: '50px',
-            fontSize: '24px',
-            cursor: speaking ? 'not-allowed' : 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-            marginLeft: '10px',
-            opacity: speaking ? 0.6 : 1,
-            transition: 'all 0.3s'
-          }}
-          title="વાર્તા સાંભળો"
-        >
-          {speaking ? '⏸️' : '🔊'}
-        </button>
-      </div>
+        <div className="bg-white rounded-3xl shadow-xl p-8 max-w-sm w-full text-center z-10 relative">
+          {/* Animated Badge */}
+          <div className="mb-6">
+            <RewardBadge
+              badge={quizResult.badge}
+              badgeColor={quizResult.badgeColor}
+              score={quizResult.score}
+              totalQuestions={quizResult.totalQuestions}
+            />
+          </div>
 
-      <div className="options-list">
-        {question.options.map((option, index) => (
-          <div key={index} style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '12px' }}>
+          {/* Score Counter */}
+          <div className="mb-6">
+            <div className="text-4xl font-bold text-amber-600 mb-2">
+              {quizResult.totalPoints} / 100
+            </div>
+            <p className="text-gray-600">પોઇન્ટ</p>
+          </div>
+
+          {/* Correct Count */}
+          <p className="text-emerald-600 font-bold text-lg mb-4">
+            {quizResult.score} માંથી {quizResult.totalQuestions} સાચા! 🎉
+          </p>
+
+          {/* Personalized Message */}
+          <p className="text-gray-700 mb-6 leading-relaxed">
+            {getGujaratiMessage()}
+          </p>
+
+          {/* Achievement Stars */}
+          <div className="flex justify-center gap-1 mb-8">
+            {Array.from({ length: 5 }, (_, i) => (
+              <span
+                key={i}
+                className={`text-2xl ${i < quizResult.score ? 'text-amber-400' : 'text-gray-300'}`}
+              >
+                ⭐
+              </span>
+            ))}
+          </div>
+
+          {/* Action Buttons */}
+          <div className="space-y-3">
             <button
-              className={`option-btn ${
-                answered &&
-                (index === question.correct ? 'correct' : 'disabled')
-              } ${answered && index === selectedAnswer && index !== question.correct ? 'wrong' : ''}`}
-              onClick={() => handleAnswer(index)}
-              disabled={answered}
-              style={{ flex: 1 }}
+              onClick={restartQuiz}
+              className="w-full bg-gradient-to-r from-violet-500 to-purple-600 text-white font-bold py-3 rounded-2xl press"
             >
-              {option}
+              ફરી રમવાનું! 🔄
             </button>
+
             <button
-              onClick={async () => {
-                const textToSpeak = option.replace('✅', '').replace('—', ' ').trim().substring(0, 350)
-                try {
-                  const response = await fetch('/api/tts', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ text: textToSpeak, lang: 'gu' })
-                  })
-
-                  if (!response.ok) {
-                    console.error('TTS error:', response.status)
-                    return
-                  }
-
-                  const audioBlob = await response.blob()
-                  const audioUrl = URL.createObjectURL(audioBlob)
-                  const audio = new Audio(audioUrl)
-                  audio.onended = () => URL.revokeObjectURL(audioUrl)
-                  audio.onerror = () => {
-                    console.error('❌ Audio playback failed')
-                    URL.revokeObjectURL(audioUrl)
-                  }
-                  audio.play().catch(err => console.error('❌ Play error:', err))
-                } catch (error) {
-                  console.error('❌ TTS error:', error)
-                }
-              }}
-              style={{
-                background: '#4ecdc4',
-                color: 'white',
-                border: 'none',
-                borderRadius: '50%',
-                width: '40px',
-                height: '40px',
-                fontSize: '18px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0
-              }}
-              title="વિકલ્પ સાંભળો"
+              onClick={goToChat}
+              className="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold py-3 rounded-2xl press"
             >
-              🔊
+              VittSakhi સાથે વાત કરો 💬
             </button>
           </div>
-        ))}
-      </div>
-
-      {showResult && (
-        <div
-          className={`feedback ${
-            selectedAnswer === question.correct ? 'feedback-correct' : 'feedback-wrong'
-          }`}
-        >
-          <h4>
-            {selectedAnswer === question.correct ? '✅ સાચો જવાબ!' : '❌ ખોટો જવાબ'}
-          </h4>
-          <p>
-            {selectedAnswer === question.correct
-              ? question.feedback.correct
-              : question.feedback.incorrect}
-          </p>
-          <button className="quiz-btn" onClick={handleNext}>
-            {currentQuestion < questions.length - 1 ? 'આગળ વધો' : 'પરિણામ જુઓ'}
-          </button>
         </div>
-      )}
-    </div>
-  )
+      </div>
+    )
+  }
+
+  return null
 }
