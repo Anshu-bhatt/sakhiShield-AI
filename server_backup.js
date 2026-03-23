@@ -432,87 +432,56 @@ No extra text. No markdown. Pure JSON only.
 Make questions DIFFERENT every single call.
 Use real scam scenarios that happen in Indian villages.`
 
-    console.log('🎯 Creating quiz questions...')
+    console.log('🤖 Generating fresh quiz questions...')
 
-    // Working quiz questions
-    const quizQuestions = [
-      {
-        "id": "q1",
-        "question": "તમને WhatsApp પર મેસેજ આવ્યો: 'તમે ₹50,000 જીત્યા છો! આધાર કાર્ડ મોકલો.' તમે શું કરશો?",
-        "options": {
-          "A": "તરત આધાર કાર્ડ મોકલીશ",
-          "B": "મેસેજ ડિલીટ કરીશ અને 1930 પર રિપોર્ટ કરીશ",
-          "C": "પહેલા ફ્રેન્ડને પૂછીશ",
-          "D": "લિંક પર ક્લિક કરીશ"
-        },
-        "correctAnswer": "B",
-        "explanation": "આ એક સામાન્ય લોટરી scam છે. ક્યારેય કોઈને તમારા દસ્તાવેજો ન આપો અને 1930 પર રિપોર્ટ કરો.",
-        "category": "SCAM",
-        "points": 20
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${GROQ_API_KEY}`
       },
-      {
-        "id": "q2",
-        "question": "બેંક તરફથી ફોન આવ્યો: 'તમારું account બંધ થઈ જશે, OTP આપો.' તમે શું કરશો?",
-        "options": {
-          "A": "તરત OTP આપીશ",
-          "B": "ફોન કાપીશ અને બેંક branch જઈશ",
-          "C": "OTP ના છેલ્લા 2 digit આપીશ",
-          "D": "પાછો ફોન કરીશ"
-        },
-        "correctAnswer": "B",
-        "explanation": "બેંક ક્યારેય ફોન પર OTP માંગતી નથી. ફોન કાપો અને સીધા બેંક branch જાઓ.",
-        "category": "OTP",
-        "points": 20
-      },
-      {
-        "id": "q3",
-        "question": "UPI માં ₹500 ની 'Collect Request' આવી અજાણ્યા number તરફથી. તમે શું કરશો?",
-        "options": {
-          "A": "Accept કરીશ",
-          "B": "Decline કરીશ",
-          "C": "Half amount accept કરીશ",
-          "D": "Wait કરીશ"
-        },
-        "correctAnswer": "B",
-        "explanation": "Collect Request નો મતલબ તમારા પૈસા બહાર જશે. અજાણ્યા requests હંમેશા decline કરો.",
-        "category": "UPI",
-        "points": 20
-      },
-      {
-        "id": "q4",
-        "question": "Instagram પર કોઈએ કહ્યું: 'iPhone 80% discount માં મળે છે, Link પર click કરો.' તમે શું કરશો?",
-        "options": {
-          "A": "તરત link પર click કરીશ",
-          "B": "Ignore કરીશ અને block કરીશ",
-          "C": "Card details આપીશ",
-          "D": "Friends ને share કરીશ"
-        },
-        "correctAnswer": "B",
-        "explanation": "80% discount = 100% scam. આવા offers હંમેશા fake હોય છે. Block કરો અને ignore કરો.",
-        "category": "SCAM",
-        "points": 20
-      },
-      {
-        "id": "q5",
-        "question": "QR code scan કર્યા પછી ₹1 લખાણ આવ્યું, પણ ₹5000 કપાઈ ગયા. આ કેવી રીતે થયું?",
-        "options": {
-          "A": "Technical error છે",
-          "B": "Fake QR code હતો જે UPI Collect કરે છે",
-          "C": "Bank ની ભૂલ છે",
-          "D": "App નું કામ યોગ્ય નથી"
-        },
-        "correctAnswer": "B",
-        "explanation": "Scammers fake QR codes બનાવે છે જે payment receive કરવાને બદલે આપથી પૈસા collect કરે છે.",
-        "category": "UPI",
-        "points": 20
+      body: JSON.stringify({
+        model: 'openai/gpt-oss-120b',
+        max_tokens: 3000,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: 'Generate 5 unique Gujarati quiz questions about financial scams for rural women. Return pure JSON array only.' }
+        ]
+      })
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      console.error('❌ Groq API error:', response.status, errorData)
+      return res.status(response.status).json({ error: `AI generation failed: ${response.status}` })
+    }
+
+    const data = await response.json()
+    let aiContent = data.choices[0].message.content.trim()
+
+    // Clean up response - extract JSON if wrapped in markdown
+    if (aiContent.includes('```')) {
+      const jsonMatch = aiContent.match(/```(?:json)?\s*([\s\S]*?)\s*```/)
+      if (jsonMatch) {
+        aiContent = jsonMatch[1]
       }
-    ]
+    }
 
-    // Randomize questions
-    const shuffledQuestions = quizQuestions.sort(() => Math.random() - 0.5)
+    // Parse AI response
+    let generatedQuestions
+    try {
+      generatedQuestions = JSON.parse(aiContent)
+    } catch (parseError) {
+      console.error('❌ JSON parse error:', parseError)
+      return res.status(500).json({ error: 'Invalid JSON from AI', details: aiContent })
+    }
+
+    if (!Array.isArray(generatedQuestions) || generatedQuestions.length !== 5) {
+      return res.status(500).json({ error: 'AI did not return 5 questions', data: generatedQuestions })
+    }
 
     // Transform questions to match MongoDB schema
-    const transformedQuestions = shuffledQuestions.map(q => {
+    const transformedQuestions = generatedQuestions.map(q => {
       // Convert options object {A: "...", B: "...", C: "...", D: "..."} to array ["...", "...", "...", "..."]
       const optionsArray = Object.values(q.options || {})
 
@@ -636,6 +605,16 @@ app.post('/api/quiz/submit', async (req, res) => {
   }
 })
 
+// Get quiz history for device
+app.get('/api/quiz-history/:deviceId', async (req, res) => {
+  try {
+    const history = await QuizResult.find({ deviceId: req.params.deviceId }).sort({ completedAt: -1 })
+    res.json({ history })
+  } catch (error) {
+    console.error('❌ Get quiz history error:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
 
 app.listen(PORT, async () => {
   console.log(`🚀 Backend server running at http://localhost:${PORT}`)

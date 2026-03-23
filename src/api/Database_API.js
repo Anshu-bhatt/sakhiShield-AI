@@ -1,6 +1,6 @@
 import { getDeviceId } from '../utils/deviceId'
 
-const API_URL = 'http://localhost:5001'
+const API_URL = 'http://localhost:5000'
 
 export async function registerDevice() {
   try {

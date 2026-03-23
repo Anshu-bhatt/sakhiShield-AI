@@ -366,3 +366,118 @@ body {
   background: #e5e7eb;
   margin: 0 auto 20px;
 }
+
+/* ── Quiz Animations ─────────────────────────────────────────── */
+
+@keyframes floatUp {
+  0% {
+    transform: translateY(100vh);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-100vh);
+    opacity: 0;
+  }
+}
+
+@keyframes badgePop {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes goldenGlow {
+  0%, 100% {
+    opacity: 0.6;
+    transform: rotate(0deg);
+  }
+  50% {
+    opacity: 0.9;
+    transform: rotate(180deg);
+  }
+}
+
+@keyframes pointFloat {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-30px) scale(1.2);
+    opacity: 0;
+  }
+}
+
+@keyframes shakeWrong {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-10px); }
+  75% { transform: translateX(10px); }
+}
+
+@keyframes correctPulse {
+  0% {
+    transform: scale(1);
+    background-color: rgb(16 185 129);
+  }
+  50% {
+    transform: scale(1.05);
+    background-color: rgb(5 150 105);
+  }
+  100% {
+    transform: scale(1);
+    background-color: rgb(16 185 129);
+  }
+}
+
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── Quiz Animation Classes ──────────────────────────────────── */
+
+.animate-floatUp {
+  animation: floatUp var(--duration, 3s) linear infinite;
+}
+
+.animate-badgePop {
+  animation: badgePop 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.animate-goldenGlow {
+  animation: goldenGlow 2s ease-in-out infinite;
+}
+
+.animate-pointFloat {
+  animation: pointFloat 1s ease-out forwards;
+}
+
+.animate-shakeWrong {
+  animation: shakeWrong 0.6s ease-in-out;
+}
+
+.animate-correctPulse {
+  animation: correctPulse 0.6s ease-in-out;
+}
+
+.animate-spin-slow {
+  animation: spin-slow 4s linear infinite;
+}

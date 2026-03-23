@@ -21,19 +21,24 @@ export default function ProfileScreen() {
   const loadData = async () => {
     setLoading(true)
     try {
-      const history = await getQuizHistory()
-      const fraudsList = await getFrauds()
-      const alertsList = await getAlerts()
+      console.log('🔍 ProfileScreen using device ID:', deviceId)
 
+      const [history, fraudsList, alertsList] = await Promise.all([
+        getQuizHistory(),
+        getFrauds(),
+        getAlerts()
+      ])
+
+      console.log('📊 Profile data loaded:', {
+        deviceId,
+        quizzes: history?.length || 0,
+        frauds: fraudsList?.length || 0,
+        alerts: alertsList?.length || 0,
+        history: history
+      })
       setQuizHistory(history || [])
-      setFrauds(fraudsList || [])
-      setAlerts(alertsList || [])
-
-      // Calculate total points from quiz history
-      const points = history.reduce((sum, quiz) => sum + quiz.score * 20, 0)
-      setTotalPoints(points)
     } catch (error) {
-      console.error('Failed to load data:', error)
+      console.error('❌ Failed to load profile data:', error)
     }
     setLoading(false)
   }
@@ -112,11 +117,11 @@ export default function ProfileScreen() {
           </div>
           <div className="points-item">
             <span className="points-value">{quizHistory.length}</span>
-            <span className="points-label">ક્વિઝ સમ્પૂર્ણ</span>
+            <span className="points-label">ક્વિઝ સ્કોર</span>
           </div>
           <div className="points-item">
             <span className="points-value">{streak}</span>
-            <span className="points-label">દિવસી સ્ટ્રીક</span>
+            <span className="points-label">દિવસો સ્ટ્રીક</span>
           </div>
         </div>
       </div>
@@ -188,7 +193,26 @@ export default function ProfileScreen() {
                 </div>
               </div>
             ) : (
-              <p className="empty-state">ક્વિઝ રમીને પોતાનો રેકોર્ડ શરૂ કરો!</p>
+              <div className="empty-state">
+                <div style={{ marginBottom: '16px', fontSize: '24px' }}>🎯</div>
+                <p style={{ fontWeight: 'bold', marginBottom: '8px' }}>કોઈ ક્વિઝ ડેટા નથી</p>
+                <p>ક્વિઝ રમીને તમારો પ્રદર્શન જુઓ!</p>
+                <button
+                  onClick={() => navigate('/quiz')}
+                  style={{
+                    background: 'linear-gradient(135deg, #7C3AED, #6D28D9)',
+                    color: 'white',
+                    border: 'none',
+                    padding: '12px 24px',
+                    borderRadius: '25px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    marginTop: '16px'
+                  }}
+                >
+                  ક્વિઝ રમો 🚀
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -218,7 +242,26 @@ export default function ProfileScreen() {
               ))}
             </div>
           ) : (
-            <p className="empty-state">હજી કોઈ ક્વિઝ સમ્પૂર્ણ થયો નથી</p>
+            <div className="empty-state">
+              <div style={{ marginBottom: '16px', fontSize: '24px' }}>📚</div>
+              <p style={{ fontWeight: 'bold', marginBottom: '8px' }}>કોઈ ક્વિઝ ઇતિહાસ નથી</p>
+              <p>તમારી પહેલી ક્વિઝ રમો અને તમારો રેકોર્ડ જુઓ!</p>
+              <button
+                onClick={() => navigate('/quiz')}
+                style={{
+                  background: 'linear-gradient(135deg, #7C3AED, #6D28D9)',
+                  color: 'white',
+                  border: 'none',
+                  padding: '12px 24px',
+                  borderRadius: '25px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  marginTop: '16px'
+                }}
+              >
+                પહેલી ક્વિઝ રમો 🎯
+              </button>
+            </div>
           )}
         </div>
       )}
