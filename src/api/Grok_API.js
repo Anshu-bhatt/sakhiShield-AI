@@ -1,5 +1,3 @@
-const API_KEY = import.meta.env.VITE_GROK_API
-
 const SYSTEM_PROMPT = `
 You are VittSakhi — a warm, trusted AI assistant designed to protect rural and semi-urban Gujarati women from digital fraud.
 
@@ -94,7 +92,9 @@ export async function sendToClaude(messageHistory) {
     })
 
     if (!response.ok) {
-      throw new Error(`Backend Error: ${response.status}`)
+      const errorPayload = await response.json().catch(() => ({}))
+      const backendMessage = errorPayload?.error || `Backend Error: ${response.status}`
+      throw new Error(backendMessage)
     }
 
     const data = await response.json()
@@ -107,6 +107,11 @@ export async function sendToClaude(messageHistory) {
 
   } catch (error) {
     console.error('Grok API error:', error)
+
+    if (/authentication failed|unauthorized|401/i.test(error.message || '')) {
+      return 'બેન, હમણાં server ની API key માં problem છે 🔐 કૃપા કરીને GROQ_API_KEY ફરી ચેક કરજો.'
+    }
+
     return 'Maafi karo, thodi takleef che. Thodi var ma try karjo 🙏'
   }
 }
