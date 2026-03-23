@@ -2,6 +2,8 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import HomeScreen from './screens/HomeScreen'
 import ChatScreen from './screens/ChatScreen'
+import QuizScreen from './screens/QuizScreen'
+import ProfileScreen from './screens/ProfileScreen'
 
 // Placeholder screens for now
 function ScanScreen() {
@@ -22,6 +24,8 @@ export default function App() {
       <Routes>
         <Route path="/" element={<HomeScreen />} />
         <Route path="/chat" element={<ChatScreen />} />
+        <Route path="/quiz" element={<QuizScreen />} />
+        <Route path="/profile" element={<ProfileScreen />} />
         <Route path="/scan" element={<ScanScreen />} />
       </Routes>
     </BrowserRouter>

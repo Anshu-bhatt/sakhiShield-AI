@@ -34,6 +34,40 @@ export default function HomeScreen() {
           <div className="ml-auto text-purple-400 text-xl">›</div>
         </button>
 
+        {/* Quiz */}
+        <button
+          onClick={() => navigate('/quiz')}
+          className="w-full bg-white text-left rounded-2xl p-5 shadow-lg flex items-center gap-4 active:scale-95 transition-transform"
+        >
+          <div className="w-14 h-14 rounded-2xl bg-green-100 flex items-center justify-center text-3xl flex-shrink-0">
+            🎯
+          </div>
+          <div>
+            <div className="text-green-700 font-bold text-base">ક્વિઝ રમો</div>
+            <div className="text-gray-500 text-sm mt-0.5">
+              ફ્રૉડ જ્ઞાન પરીક્ષણ કરો
+            </div>
+          </div>
+          <div className="ml-auto text-green-400 text-xl">›</div>
+        </button>
+
+        {/* Profile/Records */}
+        <button
+          onClick={() => navigate('/profile')}
+          className="w-full bg-white text-left rounded-2xl p-5 shadow-lg flex items-center gap-4 active:scale-95 transition-transform"
+        >
+          <div className="w-14 h-14 rounded-2xl bg-blue-100 flex items-center justify-center text-3xl flex-shrink-0">
+            👤
+          </div>
+          <div>
+            <div className="text-blue-700 font-bold text-base">મારો પ્રોફાઇલ</div>
+            <div className="text-gray-500 text-sm mt-0.5">
+              આંકડા અને રેકોર્ડ જુઓ
+            </div>
+          </div>
+          <div className="ml-auto text-blue-400 text-xl">›</div>
+        </button>
+
         {/* Document Scan */}
         <button
           onClick={() => navigate('/scan')}
