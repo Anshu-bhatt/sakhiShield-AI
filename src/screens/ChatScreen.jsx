@@ -8,7 +8,8 @@ import MicButton from '../components/MicButton'
 import LanguageSelector from '../components/LanguageSelector'
 import ListeningOverlay from '../components/ListeningOverlay'
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition'
-import { QUICK_REPLIES, WELCOME_MESSAGE } from '../data/chatData'
+import { QUICK_REPLIES, WELCOME_MESSAGE, SAFETY_TIPS } from '../data/chatData'
+import { requestMicrophonePermission, isMobileDevice, showPermissionGuide } from '../utils/mobilePermissions'
 
 export default function ChatScreen() {
   const navigate = useNavigate()
@@ -88,43 +89,21 @@ export default function ChatScreen() {
       synthRef.current.speak(utterance)
       return
     }
-
-    // Cloud fallback for systems without Gujarati browser voices.
-    const response = await fetch('/api/tts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: content, lang: 'gu' })
-    })
-
-    if (!response.ok) {
-      throw new Error(`TTS backend error: ${response.status}`)
-    }
-
-    const audioBlob = await response.blob()
-    const objectUrl = URL.createObjectURL(audioBlob)
-    const audio = new Audio(objectUrl)
-
-    audioUrlRef.current = objectUrl
-    audioRef.current = audio
-
-    audio.onplay = () => setIsSpeaking(true)
-    audio.onended = () => {
-      setIsSpeaking(false)
-      if (audioUrlRef.current) {
-        URL.revokeObjectURL(audioUrlRef.current)
-        audioUrlRef.current = ''
-      }
-    }
-    audio.onerror = () => {
-      setIsSpeaking(false)
-      if (audioUrlRef.current) {
-        URL.revokeObjectURL(audioUrlRef.current)
-        audioUrlRef.current = ''
-      }
-    }
-
-    await audio.play()
-  }, [cleanForSpeech, hasGujaratiVoice, stopSpeaking])
+    try {
+      const r = await fetch('http://10.209.232.160:5000/api/tts', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: content, lang: 'gu' }),
+      })
+      if (!r.ok) return
+      const blob = await r.blob()
+      const url = URL.createObjectURL(blob)
+      const a = new Audio(url)
+      audioUrlRef.current = url; audioRef.current = a
+      a.onplay = () => setIsSpeaking(true)
+      a.onended = a.onerror = () => { setIsSpeaking(false); URL.revokeObjectURL(url); audioUrlRef.current = '' }
+      await a.play()
+    } catch { /* silent */ }
+  }, [clean, hasGujVoice, stopSpeaking])
 
   // Define handleSend as useCallback first
   const handleSend = useCallback(async (text) => {
@@ -189,6 +168,29 @@ export default function ChatScreen() {
     setSelectedLang(langCode)
     toggleLanguage(langCode)
   }
+
+  /* ─── Mobile Permission Handler ─── */
+  const handleMicPress = useCallback(async () => {
+    if (!isSupported) {
+      alert('❌ આ બ્રાઉઝર માં માઈક સપોર્ટ નથી')
+      return
+    }
+
+    // Check if it's mobile and request permission first
+    if (isMobileDevice()) {
+      const permissionResult = await requestMicrophonePermission()
+
+      if (permissionResult?.error) {
+        // Show detailed permission guide for mobile
+        const guide = showPermissionGuide()
+        alert(permissionResult.message + '\n\n' + guide)
+        return
+      }
+    }
+
+    // Start listening after permission is granted
+    startListening()
+  }, [isSupported, startListening])
 
   // Initialize text-to-speech support
   useEffect(() => {
@@ -376,13 +378,25 @@ export default function ChatScreen() {
             style={{ lineHeight: '1.5' }}
           />
 
-          {/* Mic button */}
-          <MicButton
-            isListening={isListening}
-            isSupported={isSupported}
-            onPress={startListening}
-            onRelease={stopListening}
-          />
+          {/* Mic */}
+          <div className="relative flex-shrink-0">
+            {/* Mobile permission hint */}
+            {isMobileDevice() && !isListening && (
+              <div className="absolute -top-8 right-0 text-xs text-gray-500 whitespace-nowrap">
+                🎤 Tap માટે permission આપો
+              </div>
+            )}
+            {isListening && <>
+              <div className="mic-ring" />
+              <div className="mic-ring mic-ring-2" />
+            </>}
+            <MicButton
+              isListening={isListening}
+              isSupported={isSupported}
+              onPress={handleMicPress}
+              onRelease={stopListening}
+            />
+          </div>
 
           {/* Send button */}
           <button
