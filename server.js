@@ -309,13 +309,20 @@ app.get('/api/quiz-random/:quizId', async (req, res) => {
       return res.status(404).json({ error: 'Quiz not found' })
     }
 
-    // Function to get random elements from array
-    const getRandomQuestions = (questions, count = 5) => {
-      const shuffled = [...questions].sort(() => Math.random() - 0.5)
-      return shuffled.slice(0, Math.min(count, questions.length))
+    // Proper Fisher-Yates shuffle algorithm
+    const fisherYatesShuffle = (array) => {
+      const shuffled = [...array]
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1))
+        ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+      }
+      return shuffled
     }
 
-    const randomQuestions = getRandomQuestions(quiz.questions, 5)
+    // Shuffle all questions and take first 5
+    const shuffledAllQuestions = fisherYatesShuffle(quiz.questions)
+    const randomQuestions = shuffledAllQuestions.slice(0, 5)
+
     const quizWithRandomQuestions = {
       ...quiz.toObject(),
       questions: randomQuestions
@@ -398,12 +405,13 @@ app.listen(PORT, async () => {
 
   // Initialize quizzes on startup
   try {
+    console.log('⏳ Initializing quizzes...')
     for (const quiz of QUIZZES) {
-      // Delete existing quiz if it exists and re-create with new schema
       await Quiz.deleteOne({ quizId: quiz.quizId })
       await Quiz.create(quiz)
       console.log(`✅ Quiz initialized: ${quiz.quizId}`)
     }
+    console.log('✅ All quizzes initialized successfully!')
   } catch (error) {
     console.error('❌ Failed to initialize quizzes:', error)
   }

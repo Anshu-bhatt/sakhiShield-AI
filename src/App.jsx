@@ -1,9 +1,12 @@
 // src/App.jsx — REPLACE entire file
+import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import HomeScreen from './screens/HomeScreen'
 import ChatScreen from './screens/ChatScreen'
 import QuizScreen from './screens/QuizScreen'
 import ProfileScreen from './screens/ProfileScreen'
+import { registerDevice } from './api/Database_API'
+import { getDeviceId } from './utils/deviceId'
 
 // Placeholder screens for now
 function ScanScreen() {
@@ -19,6 +22,24 @@ function ScanScreen() {
 }
 
 export default function App() {
+  useEffect(() => {
+    // Initialize device on app load
+    const initializeDevice = async () => {
+      try {
+        const deviceId = getDeviceId()
+        console.log(`📱 Device ID: ${deviceId}`)
+
+        // Register device in MongoDB
+        await registerDevice()
+        console.log('✅ Device registered in MongoDB')
+      } catch (error) {
+        console.error('❌ Failed to initialize device:', error)
+      }
+    }
+
+    initializeDevice()
+  }, [])
+
   return (
     <BrowserRouter>
       <Routes>

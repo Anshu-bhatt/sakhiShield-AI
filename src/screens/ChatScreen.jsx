@@ -90,7 +90,7 @@ export default function ChatScreen() {
     }
 
     // Cloud fallback for systems without Gujarati browser voices.
-    const response = await fetch('http://localhost:5000/api/tts', {
+    const response = await fetch('/api/tts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text: content, lang: 'gu' })
