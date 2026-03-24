@@ -1,6 +1,6 @@
 import { getDeviceId } from '../utils/deviceId'
 
-const API_URL = 'http://10.209.232.160:5001'
+const API_URL = 'http://localhost:5000'
 
 // Generate fresh quiz questions using AI
 export async function generateQuiz() {

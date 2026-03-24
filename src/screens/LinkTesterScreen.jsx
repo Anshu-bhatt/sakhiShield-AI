@@ -32,7 +32,7 @@ export default function LinkTesterScreen() {
     setResult(null)
 
     try {
-      const response = await fetch('http://10.209.232.160:5001/api/analyze-link', {
+      const response = await fetch('http://localhost:5000/api/analyze-link', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
