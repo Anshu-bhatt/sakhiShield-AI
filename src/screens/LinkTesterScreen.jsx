@@ -1,6 +1,8 @@
 import { useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
+
 export default function LinkTesterScreen() {
   const navigate = useNavigate()
   const [url, setUrl] = useState('')
@@ -32,7 +34,7 @@ export default function LinkTesterScreen() {
     setResult(null)
 
     try {
-      const response = await fetch('http://localhost:5000/api/analyze-link', {
+      const response = await fetch(`${API_BASE_URL}/api/analyze-link`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
