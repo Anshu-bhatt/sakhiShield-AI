@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { generateQuiz, submitQuiz } from '../api/quizApi'
+import { generateQuiz, submitQuiz, syncOfflineQuizResults } from '../api/quizApi'
 import StarParticles from '../components/StarParticles'
 import RewardBadge from '../components/RewardBadge'
 
@@ -26,6 +26,10 @@ export default function QuizScreen() {
   // Load fresh questions on mount
   useEffect(() => {
     loadQuiz()
+    // Try to sync any offline results on mount
+    syncOfflineQuizResults().catch(() => {
+      // Silent fail - just log to console
+    })
   }, [])
 
   // Timer for questions

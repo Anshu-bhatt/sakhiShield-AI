@@ -61,7 +61,11 @@ app.get('/', (req, res) => {
     endpoints: [
       '/api/grok', '/api/tts', '/api/register-device', '/api/save-alert',
       '/api/alerts/:deviceId',
-      '/api/save-quiz-result', '/api/quiz-random/:quizId', '/api/quiz-history/:deviceId'
+      '/api/save-quiz-result', '/api/quiz-random/:quizId', '/api/quiz-history/:deviceId',
+      '/api/init-quizzes', '/api/quizzes', '/api/quiz/:quizId',
+      '/api/quiz/generate', '/api/submit-quiz',
+      '/api/verify-document', '/api/document-history/:deviceId',
+      '/api/report-fraud-document', '/api/document-templates'
     ]
   })
 })

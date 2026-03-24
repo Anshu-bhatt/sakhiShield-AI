@@ -1,4 +1,5 @@
 // src/App.jsx — REPLACE entire file
+import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import HomeScreen from './screens/HomeScreen'
 import ChatScreen from './screens/ChatScreen'

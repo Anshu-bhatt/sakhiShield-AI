@@ -114,7 +114,8 @@ export default function ChatScreen() {
     })
 
     if (!response.ok) {
-      throw new Error(`TTS backend error: ${response.status}`)
+      console.warn(`⚠️ TTS backend unavailable (${response.status}), skipping audio`)
+      return // Gracefully skip TTS without throwing error
     }
 
     const audioBlob = await response.blob()
@@ -141,7 +142,7 @@ export default function ChatScreen() {
     }
 
     await audio.play()
-  }, [cleanForSpeech, hasGujaratiVoice, stopSpeaking])
+  }, [clean, hasGujVoice, stopSpeaking])
 
   /* ─── Send ─── */
   const handleSend = useCallback(async (text) => {
