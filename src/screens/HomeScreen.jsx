@@ -159,6 +159,11 @@ export default function HomeScreen() {
       accent: '#7C3AED', bg: '#EDE9FE', path: '/chat',
     },
     {
+      emoji: '🔗', title: 'લિંક ટેસ્ટર',
+      subtitle: 'WhatsApp links ચકાસો - scam છે કે safe?',
+      accent: '#DC2626', bg: '#FEE2E2', path: '/link-tester',
+    },
+    {
       emoji: '🎯', title: 'ક્વિઝ રમો',
       subtitle: 'Fraud ઓળખો, points kamao',
       accent: '#059669', bg: '#D1FAE5', path: '/quiz',

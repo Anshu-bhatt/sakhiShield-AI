@@ -3,6 +3,7 @@ import HomeScreen from './screens/HomeScreen'
 import ChatScreen from './screens/ChatScreen'
 import QuizScreen from './screens/QuizScreen'
 import ProfileScreen from './screens/ProfileScreen'
+import LinkTesterScreen from './screens/LinkTesterScreen'
 
 function ScanScreen() {
   return (
@@ -33,6 +34,7 @@ export default function App() {
         <Route path="/quiz" element={<QuizScreen />} />
         <Route path="/profile" element={<ProfileScreen />} />
         <Route path="/scan" element={<ScanScreen />} />
+        <Route path="/link-tester" element={<LinkTesterScreen />} />
       </Routes>
     </BrowserRouter>
   )

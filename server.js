@@ -55,7 +55,7 @@ app.get('/', (req, res) => {
   res.status(200).json({
     service: 'SakhiShield backend',
     status: 'ok',
-    endpoints: ['/api/grok', '/api/tts', '/api/register-device', '/api/save-alert', '/api/save-fraud', '/api/alerts/:deviceId', '/api/frauds/:deviceId']
+    endpoints: ['/api/grok', '/api/tts', '/api/analyze-link', '/api/register-device', '/api/save-alert', '/api/save-fraud', '/api/alerts/:deviceId', '/api/frauds/:deviceId', '/api/quiz/generate', '/api/quiz/submit']
   })
 })
 
@@ -633,6 +633,189 @@ app.post('/api/quiz/submit', async (req, res) => {
   } catch (error) {
     console.error('❌ Quiz submit error:', error)
     res.status(500).json({ error: error.message })
+  }
+})
+
+// Link Analysis Endpoint - Check for phishing, scams, and malicious URLs
+app.post('/api/analyze-link', async (req, res) => {
+  try {
+    const { url, language = 'gujarati' } = req.body
+
+    if (!url) {
+      return res.status(400).json({ error: 'URL is required' })
+    }
+
+    // Basic URL validation
+    try {
+      new URL(url)
+    } catch {
+      return res.status(400).json({
+        error: 'Invalid URL format',
+        message: language === 'gujarati' ? 'અયોગ્ય લિંક ફોર્મેટ' : 'Invalid URL format'
+      })
+    }
+
+    const GROQ_API_KEY = getGroqApiKey()
+
+    // Enhanced pattern-based analysis with comprehensive threat detection
+    const suspiciousPatterns = [
+      // Shortened URL services
+      'bit.ly', 'tinyurl', 'shortened', 'click.me', 't.co', 'ow.ly', 'goo.gl',
+      'short.link', 'cutt.ly', 'rb.gy', 'is.gd', 'buff.ly',
+
+      // Scam keywords
+      'winprize', 'urgent', 'winner', 'lottery', 'congratulations',
+      'claim-now', 'free-money', 'cashback', 'instant-loan',
+
+      // Phishing indicators
+      'verify-account', 'security-alert', 'suspended', 'update-info',
+      'confirm-identity', 'account-limited', 'login-required',
+
+      // Banking/Government scams
+      'bank-update', 'aadhar', 'government', 'loan-approved', 'subsidy',
+      'pm-kisan', 'digital-india', 'beneficiary', 'govt-scheme',
+
+      // Romance/Social scams
+      'dating', 'meet-singles', 'chat-now', 'lonely', 'friendship',
+
+      // Shopping scams
+      'flash-sale', 'limited-time', '90-off', 'clearance', 'mega-deal',
+
+      // Suspicious domains
+      'secure-login', 'verify-info', 'update-details', 'confirm-payment'
+    ]
+
+    // Additional checks for domain patterns
+    const suspiciousDomainPatterns = [
+      /\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/, // IP addresses instead of domains
+      /[a-z]{20,}\.com/, // Very long random domain names
+      /.*-.*-.*-.*\./, // Multiple hyphens (often used in phishing)
+      /.*\.(tk|ml|ga|cf)$/, // Free suspicious TLDs
+    ]
+
+    const isSuspicious = suspiciousPatterns.some(pattern =>
+      url.toLowerCase().includes(pattern.toLowerCase())
+    ) || suspiciousDomainPatterns.some(pattern => pattern.test(url.toLowerCase()))
+
+    // If no Groq API key, return basic analysis
+    if (!GROQ_API_KEY) {
+      return res.json({
+        isSafe: !isSuspicious,
+        riskLevel: isSuspicious ? 'medium' : 'safe',
+        message: isSuspicious
+          ? 'આ લિંક જોખમકારક લાગે છે! આ એક scam લિંક હોઈ શકે છે.'
+          : 'આ લિંક સુરક્ષિત લાગે છે પણ હંમેશા સાવચેત રહેજો.',
+        details: isSuspicious
+          ? ['જોખમકારક pattern શોધાયું', 'Scam અથવા phishing લિંક હોઈ શકે', 'Shortened URL અથવા suspicious keywords']
+          : ['કોઈ સ્પષ્ટ જોખમ દેખાતું નથી', 'પણ હંમેશા સાવચેત રહેજો'],
+        recommendations: isSuspicious
+          ? ['આ લિંક પર કદાપિ click ન કરશો', 'કોઈ પણ માહિતી આપશો નહીં', 'Bank/સરકાર સાથે વાત કરીને confirm કરો', 'આ લિંક બીજાને forward ન કરશો']
+          : ['હંમેશા વિશ્વસનીય sources જ વાપરો', 'અજાણ્યા લિંકસ પર ક્લિક કરતા પહેલા વિચારો', 'પર્સનલ માહિતી શેર કરતા સાવચેત રહેજો']
+      })
+    }
+
+    // Try AI-powered analysis, but fallback to basic analysis if it fails
+    try {
+      const analysisPrompt = `
+You are a cybersecurity expert analyzing URLs for rural women in Gujarat, India. Analyze this URL for potential phishing, scams, or malicious content:
+
+URL: ${url}
+
+Consider these specific threats targeting rural Indian women:
+1. Fake government websites asking for documents/Aadhaar
+2. Loan scam websites promising easy money
+3. Prize/lottery scams claiming "you won something"
+4. Banking phishing sites asking for OTP/passwords
+5. Shopping scams with too-good-to-be-true offers
+6. Romance/marriage scams
+
+Provide analysis in JSON format:
+{
+  "isSafe": boolean,
+  "riskLevel": "safe|low|medium|high",
+  "message": "Main message in Gujarati explaining if safe or dangerous",
+  "details": ["Array of specific issues found in Gujarati"],
+  "recommendations": ["Array of specific actions to take in Gujarati"]
+}
+
+Focus on practical advice for rural women. Use simple Gujarati language. Be thorough but accessible.`
+
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${GROQ_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: 'llama-3.1-70b-versatile',
+          messages: [{
+            role: 'user',
+            content: analysisPrompt
+          }],
+          temperature: 0.3,
+          max_tokens: 1000
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error(`Groq API error: ${response.status}`)
+      }
+
+      const aiResult = await response.json()
+      const analysisText = aiResult.choices[0]?.message?.content
+
+      try {
+        // Extract JSON from AI response
+        const jsonMatch = analysisText.match(/\{[\s\S]*\}/)
+        if (jsonMatch) {
+          const analysis = JSON.parse(jsonMatch[0])
+
+          // Validate the response structure
+          const validAnalysis = {
+            isSafe: Boolean(analysis.isSafe),
+            riskLevel: analysis.riskLevel || 'unknown',
+            message: analysis.message || 'વિશ્લેષણ પૂર્ણ થયું',
+            details: Array.isArray(analysis.details) ? analysis.details : [],
+            recommendations: Array.isArray(analysis.recommendations) ? analysis.recommendations : []
+          }
+
+          console.log(`🔍 Link analyzed: ${url} - Risk: ${validAnalysis.riskLevel}`)
+          return res.json(validAnalysis)
+        }
+      } catch (parseError) {
+        console.error('AI response parsing failed:', parseError)
+      }
+
+      // If parsing fails, throw to go to fallback
+      throw new Error('AI parsing failed')
+
+    } catch (groqError) {
+      console.log('🤖 Groq API failed, using fallback analysis:', groqError.message)
+      // Fallback to pattern-based analysis
+      return res.json({
+        isSafe: !isSuspicious,
+        riskLevel: isSuspicious ? 'medium' : 'safe',
+        message: isSuspicious
+          ? '⚠️ જોખમી લિંક શોધાયું! આ એક scam લાગે છે.'
+          : '✅ બેઝિક ચકાસણી મુજબ આ લિંક સુરક્ષિત લાગે છે.',
+        details: isSuspicious
+          ? ['જોખમકારક પેટર્ન શોધાયું', 'Scam/phishing લિંક હોઈ શકે', 'Enhanced security analysis failed']
+          : ['કોઈ સ્પષ્ટ જોખમી પેટર્ન મળ્યું નથી', 'બેઝિક સુરક્ષા ચકાસણી પાસ', 'પણ હંમેશા સાવચેત રહેજો'],
+        recommendations: isSuspicious
+          ? ['આ લિંક પર કદાપિ ક્લિક ન કરશો ❌', 'કોઈ પણ માહિતી આપશો નહીં', 'બેંક/સરકાર સાથે confirm કરો', 'આ SMS forward ન કરશો']
+          : ['હંમેશા સાવચેત રહેજો', 'અજાણ્યા લિંકસ પર ક્લિક કરતા વિચારજો', 'પર્સનલ ડેટા શેર કરતા સાવચેત રહેજો']
+      })
+    }
+
+  } catch (error) {
+    console.error('❌ Link analysis error:', error)
+    res.status(500).json({
+      isSafe: false,
+      riskLevel: 'unknown',
+      message: 'તકનીકી સમસ્યા આવી. સાવચેત રહો અને આ લિંક વાપરો નહીં.',
+      details: ['સર્વર error આવ્યું', 'વિશ્લેષણ અધૂરું રહ્યું'],
+      recommendations: ['આ લિંક પર click ન કરો', 'થોડી વાર પછી પ્રયાસ કરો', 'વિશ્વસનીય વ્યક્તિ સાથે સલાહ કરો']
+    })
   }
 })
 

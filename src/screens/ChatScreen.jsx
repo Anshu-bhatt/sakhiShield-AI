@@ -106,7 +106,7 @@ export default function ChatScreen() {
       return
     }
     try {
-      const r = await fetch('http://localhost:5000/api/tts', {
+      const r = await fetch('http://10.209.232.160:5001/api/tts', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: content, lang: 'gu' }),
       })
