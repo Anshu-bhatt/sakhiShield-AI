@@ -703,26 +703,38 @@ app.post('/api/analyze-link', async (req, res) => {
       'bit.ly', 'tinyurl', 'shortened', 'click.me', 't.co', 'ow.ly', 'goo.gl',
       'short.link', 'cutt.ly', 'rb.gy', 'is.gd', 'buff.ly',
 
-      // Scam keywords
+      // Scam keywords - Money/Earning scams
       'winprize', 'urgent', 'winner', 'lottery', 'congratulations',
-      'claim-now', 'free-money', 'cashback', 'instant-loan',
+      'claim', 'free-money', 'freemoney', 'cashback', 'instant-loan', 'instantloan',
+      'earn-money', 'earnmoney', 'getmoney', 'getmony', 'quick-cash', 'quickcash', 'easy-money', 'easymoney',
+      'paisa', 'paise', 'fast-cash', 'fastcash', 'make-money', 'makemoney', 
+      'extra-income', 'side-income', 'passive-income', 'moneymake', 'moneyonline',
+      'incomeopportunity', 'workhome', 'workfromhome', 'onlinecash', 'fastmoney',
+
+      // Prize/Gift scam keywords
+      'prize', 'prizes', 'gift', 'freegift', 'reward', 'bonus',
+      'lucky-draw', 'luckydraw', 'jackpot', 'claim-prize',
 
       // Phishing indicators
       'verify-account', 'security-alert', 'suspended', 'update-info',
       'confirm-identity', 'account-limited', 'login-required',
 
       // Banking/Government scams
-      'bank-update', 'aadhar', 'government', 'loan-approved', 'subsidy',
-      'pm-kisan', 'digital-india', 'beneficiary', 'govt-scheme',
+      'bank-update', 'aadhar', 'aadhaar', 'government', 'loan-approved', 'subsidy',
+      'pm-kisan', 'digital-india', 'beneficiary', 'govt-scheme', 'kyc-update',
+      'bank-alert', 'account-suspended', 'activate-account',
 
       // Romance/Social scams
       'dating', 'meet-singles', 'chat-now', 'lonely', 'friendship',
+      'matrimony', 'marriage', 'bride', 'groom',
 
       // Shopping scams
       'flash-sale', 'limited-time', '90-off', 'clearance', 'mega-deal',
+      '99-offer', 'unbelievable-price', 'super-deal',
 
       // Suspicious domains
-      'secure-login', 'verify-info', 'update-details', 'confirm-payment'
+      'secure-login', 'verify-info', 'update-details', 'confirm-payment',
+      'authentication', 'reactivate', 'validate-account'
     ]
 
     // Additional checks for domain patterns
@@ -730,12 +742,20 @@ app.post('/api/analyze-link', async (req, res) => {
       /\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/, // IP addresses instead of domains
       /[a-z]{20,}\.com/, // Very long random domain names
       /.*-.*-.*-.*\./, // Multiple hyphens (often used in phishing)
-      /.*\.(tk|ml|ga|cf)$/, // Free suspicious TLDs
+      /.*\.(tk|ml|ga|cf|loan|credit|finance|bank|money|cash|coins)$/, // Free/suspicious TLDs
+      /^([a-z]+)\.\1$/, // Repeated domain names (loan.loan, bank.bank, etc.)
+      /.*\.(xyz|top|info|online|site|space|store|download|review|moe|stream|there)$/, // Other suspicious TLDs used by scammers
     ]
 
-    const isSuspicious = suspiciousPatterns.some(pattern =>
-      url.toLowerCase().includes(pattern.toLowerCase())
-    ) || suspiciousDomainPatterns.some(pattern => pattern.test(url.toLowerCase()))
+    const isSuspicious = suspiciousPatterns.some(pattern => {
+      const urlLower = url.toLowerCase()
+      // Check exact pattern match
+      if (urlLower.includes(pattern.toLowerCase())) return true
+      // Also check without hyphens for better matching (getmone matches get-money)
+      const urlNoHyphens = urlLower.replace(/-/g, '')
+      const patternNoHyphens = pattern.toLowerCase().replace(/-/g, '')
+      return urlNoHyphens.includes(patternNoHyphens)
+    }) || suspiciousDomainPatterns.some(pattern => pattern.test(url.toLowerCase()))
 
     // If no Groq API key, return basic analysis
     if (!GROQ_API_KEY) {
