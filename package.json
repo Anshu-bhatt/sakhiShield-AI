@@ -8,9 +8,9 @@
     "dev:frontend": "vite",
     "dev:backend": "node server.js",
     "dev": "node server.js & vite",
-    "build": "vite build",
+    "build": "npx vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "npx vite preview"
   },
   "dependencies": {
     "cors": "^2.8.6",
