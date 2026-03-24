@@ -36,7 +36,23 @@ export default function ProfileScreen() {
         alerts: alertsList?.length || 0,
         history: history
       })
+
+      // Set the data
       setQuizHistory(history || [])
+      setFrauds(fraudsList || [])
+      setAlerts(alertsList || [])
+
+      // Calculate total points from quiz history
+      const points = (history || []).reduce((sum, quiz) => {
+        // Each quiz gives points based on score
+        // If totalPoints exists, use that; otherwise calculate from score
+        const quizPoints = quiz.totalPoints || (quiz.score * 20) || (quiz.percentage * 0.2) || 0
+        console.log(`Quiz ${quiz._id}: score=${quiz.score}, percentage=${quiz.percentage}, points=${quizPoints}`)
+        return sum + quizPoints
+      }, 0)
+
+      setTotalPoints(Math.round(points))
+      console.log('💰 Total points calculated:', Math.round(points))
     } catch (error) {
       console.error('❌ Failed to load profile data:', error)
     }

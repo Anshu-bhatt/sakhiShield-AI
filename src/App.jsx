@@ -9,6 +9,7 @@ import SchemesScreen from './screens/SchemesScreen'
 import SchemeDetailScreen from './screens/SchemeDetailScreen'
 import { registerDevice } from './api/Database_API'
 import { getDeviceId } from './utils/deviceId'
+import LinkTesterScreen from './screens/LinkTesterScreen'
 
 function ScanScreen() {
   return (
@@ -59,6 +60,7 @@ export default function App() {
         <Route path="/scheme/:schemeId" element={<SchemeDetailScreen />} />
         <Route path="/profile" element={<ProfileScreen />} />
         <Route path="/scan" element={<ScanScreen />} />
+        <Route path="/link-tester" element={<LinkTesterScreen />} />
       </Routes>
     </BrowserRouter>
   )
