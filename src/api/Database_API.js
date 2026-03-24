@@ -1,7 +1,6 @@
 import { getDeviceId } from '../utils/deviceId'
 
-// Use relative paths - Vite proxy will forward /api requests to localhost:5000
-const API_URL = ''
+const API_URL = 'http://10.209.232.160:5000'
 
 export async function registerDevice() {
   try {
