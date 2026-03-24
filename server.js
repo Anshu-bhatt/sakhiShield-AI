@@ -5,7 +5,7 @@ import fs from 'fs'
 import path from 'path'
 import googleTTS from 'google-tts-api'
 import { connectDB } from './db/db.js'
-import { UserDevice, AlertLog, FraudDetection, Quiz, QuizResult } from './db/models.js'
+import { UserDevice, AlertLog, Quiz, QuizResult } from './db/models.js'
 import { QUIZZES } from './src/data/quizData.js'
 
 function loadEnvFile(fileName = '.env.local') {
@@ -51,11 +51,23 @@ const PORT = process.env.PORT || 5000
 app.use(cors())
 app.use(express.json())
 
+// API Endpoints
+
+// Health check endpoint
 app.get('/', (req, res) => {
   res.status(200).json({
     service: 'SakhiShield backend',
     status: 'ok',
-    endpoints: ['/api/grok', '/api/tts', '/api/analyze-link', '/api/register-device', '/api/save-alert', '/api/save-fraud', '/api/alerts/:deviceId', '/api/frauds/:deviceId', '/api/quiz/generate', '/api/quiz/submit']
+    endpoints: [
+      '/api/grok', '/api/tts', '/api/register-device', '/api/save-alert',
+      '/api/alerts/:deviceId',
+      '/api/save-quiz-result', '/api/quiz-random/:quizId', '/api/quiz-history/:deviceId',
+      '/api/init-quizzes', '/api/quizzes', '/api/quiz/:quizId',
+      '/api/quiz/generate', '/api/submit-quiz',
+      '/api/quiz/submit', '/api/analyze-link',
+      '/api/verify-document', '/api/document-history/:deviceId',
+      '/api/report-fraud-document', '/api/document-templates'
+    ]
   })
 })
 
@@ -192,29 +204,6 @@ app.post('/api/save-alert', async (req, res) => {
   }
 })
 
-// Save Fraud Detection
-app.post('/api/save-fraud', async (req, res) => {
-  try {
-    const { deviceId, fraudType, details, severity } = req.body
-
-    // Protect against quiz data being sent to fraud detection
-    if (fraudType === 'quiz_wrong_answer') {
-      return res.status(400).json({
-        error: 'Quiz data should go to /api/save-quiz-result endpoint',
-        message: 'Wrong answers should not be stored as fraud detections'
-      })
-    }
-
-    const fraud = new FraudDetection({ deviceId, fraudType, details, severity })
-    await fraud.save()
-    console.log(`🚨 Fraud detected for device ${deviceId}: ${fraudType}`)
-    res.json({ success: true })
-  } catch (error) {
-    console.error('❌ Fraud save error:', error)
-    res.status(500).json({ error: error.message })
-  }
-})
-
 // Get User's Alert Logs
 app.get('/api/alerts/:deviceId', async (req, res) => {
   try {
@@ -222,17 +211,6 @@ app.get('/api/alerts/:deviceId', async (req, res) => {
     res.json({ alerts })
   } catch (error) {
     console.error('❌ Get alerts error:', error)
-    res.status(500).json({ error: error.message })
-  }
-})
-
-// Get User's Fraud Detection Logs
-app.get('/api/frauds/:deviceId', async (req, res) => {
-  try {
-    const frauds = await FraudDetection.find({ deviceId: req.params.deviceId }).sort({ timestamp: -1 })
-    res.json({ frauds })
-  } catch (error) {
-    console.error('❌ Get frauds error:', error)
     res.status(500).json({ error: error.message })
   }
 })
@@ -840,7 +818,8 @@ app.listen(PORT, async () => {
       console.log(`✅ Quiz initialized: ${quiz.quizId}`)
     }
     console.log('✅ All quizzes initialized successfully!')
+
   } catch (error) {
-    console.error('❌ Failed to initialize quizzes:', error)
+    console.error('❌ Failed to initialize data:', error)
   }
 })
