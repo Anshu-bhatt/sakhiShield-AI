@@ -208,7 +208,7 @@ export default function ChatScreen() {
   function onKeyDown(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }
 
   return (
-    <div className="flex flex-col" style={{ height: '100svh', height: '100vh', background: '#FAFAF9' }}>
+    <div className="flex flex-col" style={{ minHeight: '100svh', background: '#FAFAF9' }}>
 
       {toast && <Toast msg="🎉 Pehlo chat done! Smart cho tame! 💜" onDone={() => setToast(false)} />}
 
