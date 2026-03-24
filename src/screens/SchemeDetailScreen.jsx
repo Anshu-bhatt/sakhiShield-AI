@@ -1,13 +1,36 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { ChevronLeftIcon, PhoneIcon, GlobeAltIcon, CheckCircleIcon, DocumentTextIcon, CurrencyRupeeIcon, UserGroupIcon } from '@heroicons/react/24/outline'
 import { useParams, useNavigate } from 'react-router-dom'
-import { GUJARAT_WOMEN_SCHEMES, SCHEME_CATEGORIES } from '../data/gujaratiSchemes'
+import { SCHEME_CATEGORIES } from '../data/gujaratiSchemes'
+import { getSchemeById } from '../api/Database_API'
 
 export default function SchemeDetailScreen() {
   const { schemeId } = useParams()
   const navigate = useNavigate()
+  const [scheme, setScheme] = useState(null)
+  const [isLoading, setIsLoading] = useState(true)
 
-  const scheme = Object.values(GUJARAT_WOMEN_SCHEMES).find(s => s.schemeId === schemeId)
+  useEffect(() => {
+    const loadScheme = async () => {
+      setIsLoading(true)
+      const dbScheme = await getSchemeById(schemeId)
+      setScheme(dbScheme)
+      setIsLoading(false)
+    }
+
+    loadScheme()
+  }, [schemeId])
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-green-50 flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-xl font-bold text-green-700 mb-2">યોજના લોડ થઈ રહી છે...</h2>
+          <p className="text-green-600">કૃપા કરીને રાહ જુઓ</p>
+        </div>
+      </div>
+    )
+  }
 
   if (!scheme) {
     return (

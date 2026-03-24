@@ -62,6 +62,26 @@ const quizResultSchema = new mongoose.Schema({
   completedAt: { type: Date, default: Date.now }
 })
 
+// Government Scheme Schema
+const schemeSchema = new mongoose.Schema({
+  schemeId: { type: String, unique: true, required: true },
+  name: { type: String, required: true },
+  nameEnglish: String,
+  category: { type: String, required: true },
+  department: String,
+  shortDescription: String,
+  fullDescription: String,
+  benefits: [String],
+  eligibility: [String],
+  documents: [String],
+  applicationProcess: [String],
+  website: String,
+  helpline: String,
+  lastUpdated: String,
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
+})
+
 // Document Template Schema - For storing authentic document patterns
 const documentTemplateSchema = new mongoose.Schema({
   documentType: { type: String, enum: ['aadhaar', 'pan', 'upi'], required: true },
@@ -121,6 +141,7 @@ export const AlertLog = mongoose.model('AlertLog', alertLogSchema)
 export const FraudDetection = mongoose.model('FraudDetection', fraudDetectionSchema)
 export const Quiz = mongoose.model('Quiz', quizSchema)
 export const QuizResult = mongoose.model('QuizResult', quizResultSchema)
+export const Scheme = mongoose.model('Scheme', schemeSchema)
 export const DocumentTemplate = mongoose.model('DocumentTemplate', documentTemplateSchema)
 export const DocumentVerification = mongoose.model('DocumentVerification', documentVerificationSchema)
 export const DocumentFraudReport = mongoose.model('DocumentFraudReport', documentFraudReportSchema)

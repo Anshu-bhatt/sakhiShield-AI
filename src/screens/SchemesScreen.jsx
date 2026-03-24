@@ -1,14 +1,33 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { ChevronLeftIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 import { useNavigate } from 'react-router-dom'
-import { GUJARAT_WOMEN_SCHEMES, SCHEME_CATEGORIES } from '../data/gujaratiSchemes'
+import { SCHEME_CATEGORIES } from '../data/gujaratiSchemes'
+import { getSchemes } from '../api/Database_API'
 
 export default function SchemesScreen() {
   const navigate = useNavigate()
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
+  const [schemes, setSchemes] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
 
-  const schemes = Object.values(GUJARAT_WOMEN_SCHEMES)
+  useEffect(() => {
+    const loadSchemes = async () => {
+      setIsLoading(true)
+      setLoadError('')
+
+      const dbSchemes = await getSchemes()
+      if (dbSchemes.length === 0) {
+        setLoadError('યોજનાઓ લોડ કરવામાં સમસ્યા આવી. કૃપા કરીને ફરી પ્રયાસ કરો.')
+      }
+
+      setSchemes(dbSchemes)
+      setIsLoading(false)
+    }
+
+    loadSchemes()
+  }, [])
 
   const filteredSchemes = schemes.filter(scheme => {
     const categoryMatch = selectedCategory === 'all' || scheme.category === selectedCategory
@@ -85,7 +104,24 @@ export default function SchemesScreen() {
 
       {/* Schemes List */}
       <div className="flex-1 bg-gray-50 rounded-t-3xl p-6">
-        {filteredSchemes.length === 0 ? (
+        {isLoading ? (
+          <div className="text-center py-12">
+            <h3 className="text-lg font-bold text-gray-800 mb-2">યોજનાઓ લોડ થઈ રહી છે...</h3>
+            <p className="text-gray-500">કૃપા કરીને રાહ જુઓ</p>
+          </div>
+        ) : loadError ? (
+          <div className="text-center py-12">
+            <div className="text-6xl mb-4">⚠️</div>
+            <h3 className="text-lg font-bold text-gray-800 mb-2">ડેટા લોડ થઈ શક્યો નથી</h3>
+            <p className="text-gray-500 mb-4">{loadError}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="bg-green-600 text-white px-4 py-2 rounded-lg"
+            >
+              ફરી પ્રયાસ કરો
+            </button>
+          </div>
+        ) : filteredSchemes.length === 0 ? (
           <div className="text-center py-12">
             <div className="text-6xl mb-4">🔍</div>
             <h3 className="text-lg font-bold text-gray-800 mb-2">કોઈ યોજના મળી નથી</h3>
@@ -134,7 +170,7 @@ export default function SchemesScreen() {
           <h3 className="font-bold text-gray-800 mb-3 text-center">આંકડાઓ</h3>
           <div className="grid grid-cols-3 gap-4 text-center">
             <div>
-              <p className="text-2xl font-bold text-green-600">{Object.keys(GUJARAT_WOMEN_SCHEMES).length}</p>
+              <p className="text-2xl font-bold text-green-600">{schemes.length}</p>
               <p className="text-xs text-gray-500">કુલ યોજનાઓ</p>
             </div>
             <div>

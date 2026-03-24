@@ -149,3 +149,42 @@ export async function saveQuizResult(quizId, score, totalQuestions, percentage) 
     console.error('❌ Failed to save quiz result:', error)
   }
 }
+
+// Scheme APIs
+export async function initializeSchemes() {
+  try {
+    const response = await fetch(`${API_URL}/api/init-schemes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    })
+    return response.json()
+  } catch (error) {
+    console.error('❌ Failed to initialize schemes:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+export async function getSchemes() {
+  try {
+    const response = await fetch(`${API_URL}/api/schemes`)
+    const data = await response.json()
+    return data.schemes || []
+  } catch (error) {
+    console.error('❌ Failed to fetch schemes:', error)
+    return []
+  }
+}
+
+export async function getSchemeById(schemeId) {
+  try {
+    const response = await fetch(`${API_URL}/api/schemes/${schemeId}`)
+    if (!response.ok) {
+      return null
+    }
+    const data = await response.json()
+    return data.scheme || null
+  } catch (error) {
+    console.error('❌ Failed to fetch scheme:', error)
+    return null
+  }
+}

@@ -5,8 +5,9 @@ import fs from 'fs'
 import path from 'path'
 import googleTTS from 'google-tts-api'
 import { connectDB } from './db/db.js'
-import { UserDevice, AlertLog, Quiz, QuizResult } from './db/models.js'
+import { UserDevice, AlertLog, Quiz, QuizResult, Scheme } from './db/models.js'
 import { QUIZZES } from './src/data/quizData.js'
+import { GUJARAT_WOMEN_SCHEMES } from './src/data/gujaratiSchemes.js'
 
 function loadEnvFile(fileName = '.env.local') {
   const envPath = path.resolve(process.cwd(), fileName)
@@ -63,6 +64,7 @@ app.get('/', (req, res) => {
       '/api/alerts/:deviceId',
       '/api/save-quiz-result', '/api/quiz-random/:quizId', '/api/quiz-history/:deviceId',
       '/api/init-quizzes', '/api/quizzes', '/api/quiz/:quizId',
+      '/api/init-schemes', '/api/schemes', '/api/schemes/:schemeId',
       '/api/quiz/generate', '/api/submit-quiz',
       '/api/quiz/submit', '/api/analyze-link',
       '/api/verify-document', '/api/document-history/:deviceId',
@@ -284,6 +286,59 @@ app.get('/api/quiz/:quizId', async (req, res) => {
     res.json({ quiz })
   } catch (error) {
     console.error('❌ Get quiz error:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// Initialize government schemes in database (if not already there)
+app.post('/api/init-schemes', async (req, res) => {
+  try {
+    const schemes = Object.values(GUJARAT_WOMEN_SCHEMES)
+
+    for (const scheme of schemes) {
+      await Scheme.updateOne(
+        { schemeId: scheme.schemeId },
+        {
+          $set: {
+            ...scheme,
+            updatedAt: new Date()
+          },
+          $setOnInsert: { createdAt: new Date() }
+        },
+        { upsert: true }
+      )
+    }
+
+    console.log(`✅ Schemes initialized: ${schemes.length}`)
+    res.json({ success: true, message: 'Schemes initialized', count: schemes.length })
+  } catch (error) {
+    console.error('❌ Scheme init error:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// Get all government schemes
+app.get('/api/schemes', async (req, res) => {
+  try {
+    const schemes = await Scheme.find({}).sort({ name: 1 })
+    res.json({ schemes })
+  } catch (error) {
+    console.error('❌ Get schemes error:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// Get single government scheme
+app.get('/api/schemes/:schemeId', async (req, res) => {
+  try {
+    const scheme = await Scheme.findOne({ schemeId: req.params.schemeId })
+    if (!scheme) {
+      return res.status(404).json({ error: 'Scheme not found' })
+    }
+
+    res.json({ scheme })
+  } catch (error) {
+    console.error('❌ Get scheme error:', error)
     res.status(500).json({ error: error.message })
   }
 })
@@ -818,6 +873,23 @@ app.listen(PORT, async () => {
       console.log(`✅ Quiz initialized: ${quiz.quizId}`)
     }
     console.log('✅ All quizzes initialized successfully!')
+
+    console.log('⏳ Initializing schemes...')
+    const schemes = Object.values(GUJARAT_WOMEN_SCHEMES)
+    for (const scheme of schemes) {
+      await Scheme.updateOne(
+        { schemeId: scheme.schemeId },
+        {
+          $set: {
+            ...scheme,
+            updatedAt: new Date()
+          },
+          $setOnInsert: { createdAt: new Date() }
+        },
+        { upsert: true }
+      )
+    }
+    console.log(`✅ All schemes initialized successfully! Count: ${schemes.length}`)
 
   } catch (error) {
     console.error('❌ Failed to initialize data:', error)
