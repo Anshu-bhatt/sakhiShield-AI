@@ -73,3 +73,36 @@ export async function getQuizHistory() {
     return []
   }
 }
+
+// Sync offline quiz results when connection is available
+export async function syncOfflineQuizResults() {
+  try {
+    // Check localStorage for offline quiz results
+    const offlineResults = localStorage.getItem('offlineQuizResults')
+    if (!offlineResults) {
+      return { synced: 0 }
+    }
+
+    const results = JSON.parse(offlineResults)
+    let synced = 0
+
+    for (const result of results) {
+      try {
+        await submitQuiz(result.quizId, result.questions, result.answers, result.timeTaken)
+        synced++
+      } catch (error) {
+        console.error('❌ Failed to sync quiz result:', error)
+      }
+    }
+
+    if (synced > 0) {
+      localStorage.removeItem('offlineQuizResults')
+      console.log(`✅ Synced ${synced} offline quiz results`)
+    }
+
+    return { synced }
+  } catch (error) {
+    console.error('❌ Failed to sync offline results:', error)
+    return { synced: 0 }
+  }
+}
